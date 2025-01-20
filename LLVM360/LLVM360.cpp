@@ -1,6 +1,8 @@
 #include <iostream>
 #include <fstream> 
 #include <stdio.h>
+#include <sstream>
+#include <iomanip>
 #include "Utils.h"
 #include "XexLoader.h"
 #include "Instruction.h"
@@ -45,15 +47,31 @@ int main()
 		{
 			Instruction instruction;
 			const auto instructionSize = decoder.GetInstructionAt(address, instruction);
-
+			if (instructionSize == 0)
+			{
+				printf("Failed to decode instruction at %08X\n", address);
+				break;
+			}
 
 			// decode instruction bytes to Intruction struct for later use
 			// use the instruction and emit LLVM IR code
 
 
 
-			// print the instruction
-			printf("%08X: %s\n", address, instruction.opcName.c_str());
+			// print the instruction + operands
+
+
+			
+			std::ostringstream oss;
+			oss << std::hex << std::uppercase << std::setfill('0');
+			oss << std::setw(8) << address << ":   " << instruction.opcName;
+
+			for (size_t i = 0; i < instruction.ops.size(); ++i) {
+				oss << " " << std::setw(2) << static_cast<int>(instruction.ops.at(i));
+			}
+
+			std::string output = oss.str();
+			printf("%s\n", output.c_str());
 			// move to the next instruction
 			address += instructionSize;
 		}

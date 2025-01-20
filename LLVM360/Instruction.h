@@ -1,18 +1,14 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <vector>
 
 
 struct Instruction
 {
 	uint32_t address;
-	uint32_t completeInstr; 
+	uint32_t instrWord;
 	std::string opcName;
 
-	uint32_t op1;
-	uint32_t op2;
-	uint32_t op3;
-	uint32_t op4;
-	uint32_t op5;
-	uint32_t op6;
+	std::vector<uint32_t> ops;
 };
