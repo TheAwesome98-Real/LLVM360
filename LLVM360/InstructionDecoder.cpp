@@ -151,8 +151,6 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 
 			printf("VMX OPS NOT IMPLEMENTED V21=%d, V26=%d, V21_7=%d opcode: %d\n",
 				v21_11, v26_6, v21_7, opcode);
-
-			printf("VMX OPS NOT IMPLEMENTED V21: %i OP: %i\n", v21_11, opcode);
 			return 0;
 		}
 
