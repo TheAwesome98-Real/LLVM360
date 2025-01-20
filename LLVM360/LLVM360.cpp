@@ -43,6 +43,8 @@ int main()
 
 		InstructionDecoder decoder(section);
 
+		printf("\n\n\n");
+
 		while (address < endAddress)
 		{
 			Instruction instruction;
