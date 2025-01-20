@@ -127,14 +127,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AES.cpp" />
+    <ClCompile Include="InstructionDecoder.cpp" />
     <ClCompile Include="LLVM360.cpp" />
     <ClCompile Include="Utils.cpp" />
     <ClCompile Include="Utils.h" />
     <ClCompile Include="XexLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="rijndael-alg-fst.c" />
-    <ClInclude Include="rijndael-alg-fst.h" />
+    <ClInclude Include="AES.h" />
+    <ClInclude Include="Instruction.h" />
+    <ClInclude Include="InstructionDecoder.h" />
     <ClInclude Include="XEXImage.h" />
     <ClInclude Include="XexLoader.h" />
   </ItemGroup>

@@ -1,3 +1,5 @@
+#pragma once
+
 /**
  * rijndael-alg-fst.h
  *

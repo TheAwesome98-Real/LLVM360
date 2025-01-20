@@ -1,9 +1,9 @@
 #include "XexLoader.h"
-
+#include "AES.h"
 #include <stdio.h>
 #include <cstdint>
-#include <Windows.h> // Include Windows.h for S_OK
 #include <cassert>
+#include <windows.h>
 
 XexImage::XexImage(const wchar_t* path) : m_path(path) // Initialize path
 {
@@ -54,7 +54,21 @@ bool XexImage::LoadXex()
 		return false;
 	}
 
-    delete[] fileData; // Clean up allocated memory
+	// load the embedded PE image from memory image
+	printf("Loading PE image...\n");
+	if (!LoadPEImage(fileData + m_xexData.header.exe_offset, fileSize - m_xexData.header.exe_offset))
+	{
+		free((void*)m_memoryData);
+		delete[] fileData;
+		m_memoryData = nullptr;
+		m_memorySize = 0;
+		return false;
+	}
+	
+	// the file data buffer can be freed
+	delete[] fileData;
+
+
     return true; // Return true if successful
 }
 
@@ -159,6 +173,7 @@ bool XexImage::LoadImageDataBasic(ImageByteReaderXEX& data)
 			uint8_t* pt = destMemory;
 			for (uint32_t n = 0; n < data_size; n += 16, ct += 16, pt += 16)
 			{
+
 				// Decrypt 16 uint8_ts from input -> output.
 				rijndaelDecrypt(rk, Nr, ct, pt);
 
@@ -539,46 +554,255 @@ bool XexImage::LoadHeaders(ImageByteReaderXEX& reader)
 		}
 	}
 
-	/*/ decrypt the XEX key
+	// decrypt the XEX key
 	{
 		// Key for retail executables
-		const static uint8 xe_xex2_retail_key[16] =
+		const static uint8_t xe_xex2_retail_key[16] =
 		{
 			0x20, 0xB1, 0x85, 0xA5, 0x9D, 0x28, 0xFD, 0xC3,
 			0x40, 0x58, 0x3F, 0xBB, 0x08, 0x96, 0xBF, 0x91
 		};
 
 		// Key for devkit executables
-		const static uint8 xe_xex2_devkit_key[16] =
+		const static uint8_t xe_xex2_devkit_key[16] =
 		{
 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 		};
 
 		// Guess key based on file info.
-		const uint8* keyToUse = xe_xex2_devkit_key;
+		const uint8_t* keyToUse = xe_xex2_devkit_key;
 		if (m_xexData.execution_info.title_id != 0)
 		{
-			printf("XEX: Found TitleID 0x%X", m_xexData.execution_info.title_id);
+			printf("XEX: Found TitleID 0x%X\n", m_xexData.execution_info.title_id);
 			//if ( m_xexData.system_flags 
 			keyToUse = xe_xex2_retail_key;
 		}
 
 		// Decrypt the header and session key
 		uint32_t buffer[4 * (MAXNR + 1)];
-		int32 nr = rijndaelKeySetupDec(buffer, keyToUse, 128);
+		int32_t nr = rijndaelKeySetupDec(buffer, keyToUse, 128);
 		rijndaelDecrypt(buffer, nr, m_xexData.loader_info.file_key, m_xexData.session_key);
 
 		// stats
 		{
 			const uint32_t* keys = (const uint32_t*)&m_xexData.loader_info.file_key;
-			printf("XEX: Decrypted file key: %08X-%08X-%08X-%08X", keys[0], keys[1], keys[2], keys[3]);
+			printf("XEX: Decrypted file key: %08X-%08X-%08X-%08X\n", keys[0], keys[1], keys[2], keys[3]);
 
 			const uint32_t* skeys = (const uint32_t*)&m_xexData.session_key;
-			printf("XEX: Decrypted session key: %08X-%08X-%08X-%08X", skeys[0], skeys[1], skeys[2], skeys[3]);
+			printf("XEX: Decrypted session key: %08X-%08X-%08X-%08X\n", skeys[0], skeys[1], skeys[2], skeys[3]);
 		}
-	}*/
+	}
 
 	// headers loaded
 	return true;
+}
+
+bool XexImage::LoadPEImage(const uint8_t* fileData, const uint32_t fileDataSize)
+{
+	ImageByteReaderXEX loader(m_memoryData, m_memorySize);
+
+	// LOAD DOS header
+	DOSHeader dosHeader;
+	if (!loader.Read(&dosHeader, sizeof(dosHeader))) return false;
+	if (!dosHeader.Validate()) return false;
+
+	// Move to the new header
+	if (!loader.Seek(dosHeader.e_lfanew)) return false;
+
+	// Verify NT signature (PE\0\0).
+	uint32_t peSignature;
+	if (!loader.Read(&peSignature, sizeof(peSignature))) return false;
+	if (peSignature != 0x00004550)
+	{
+		printf("PE: Missing PE signature\n");
+		return false;
+	}
+
+	// Load the file header
+	COFFHeader coffHeader;
+	if (!loader.Read(&coffHeader, sizeof(COFFHeader))) return false;
+
+	// Verify matches an Xbox PE
+	if (coffHeader.Machine != 0x01F2)
+	{
+		printf("PE: Machine type does not match Xbox360 (found 0x%X)\n", coffHeader.Machine);
+		return false;
+	}
+
+	// Should be 32-bit
+	if ((coffHeader.Characteristics & 0x0100) == 0)
+	{
+		printf("PE: Only 32-bit images are supported\n");
+		return false;
+	}
+
+	// Verify the expected size.
+	if (coffHeader.SizeOfOptionalHeader != 224)
+	{
+		printf("PE: Invalid size of optional header (got %d)\n", coffHeader.SizeOfOptionalHeader);
+		return false;
+	}
+
+	// Read the optional header information
+	PEOptHeader optHeader;
+	if (!loader.Read(&optHeader, sizeof(optHeader))) return false;
+
+	// Veriry the optional header is valid (32bit)
+	if (optHeader.signature != 0x10b)
+	{
+		printf("PE: Invalid signature of optional header (got 0x%0X)\n", optHeader.signature);
+		return false;
+	}
+
+	// Verify subsystem
+	if (optHeader.Subsystem != IMAGE_SUBSYSTEM_XBOX)
+	{
+		printf("PE: Invalid subsystem (got %d)\n", optHeader.Subsystem);
+		return false;
+	}
+
+	// Store the PE header
+	m_peHeader = optHeader;
+
+	// extend the virtual memory size
+	uint32_t extendedMemorySize = 0;
+
+	// Read the sections
+	const uint32_t numSections = coffHeader.NumberOfSections;
+	for (uint32_t i = 0; i < numSections; ++i)
+	{
+		// load section description
+		COFFSection section;
+		if (!loader.Read(&section, sizeof(section))) return false;
+
+		// get section name
+		char sectionName[sizeof(section.Name) + 1];
+		memcpy(sectionName, section.Name, sizeof(section.Name));
+		sectionName[sizeof(section.Name)] = 0;
+
+		// exend the memory size
+		const uint32_t lastMemoryAddress = section.VirtualAddress + section.VirtualSize;
+		if (lastMemoryAddress > extendedMemorySize)
+		{
+			extendedMemorySize = lastMemoryAddress;
+		}
+
+		// create section info
+		m_sections.push_back(CreateSection(section));
+
+		// section info
+		printf("PE: Section '%s': physical (%d,%d), virtual (%d, %d)\n",
+			m_sections.back()->GetName().c_str(),
+			section.PointerToRawData,
+			section.SizeOfRawData,
+			section.VirtualAddress,
+			section.VirtualSize);
+	}
+
+	// extend image size
+	if (extendedMemorySize > m_memorySize)
+	{
+		// we have extended image data
+		printf("PE: Image sections extend beyond virtual memory range loaded from file (%06Xh > %06Xh). Extending by %d bytes.\n",
+			extendedMemorySize, m_memorySize,
+			extendedMemorySize - m_memorySize);
+
+		// resize image data
+		const uint32_t oldMemorySize = m_memorySize;
+		uint8_t* newMemoryData = new uint8_t[extendedMemorySize];
+		memset(newMemoryData, 0, extendedMemorySize);
+		memcpy(newMemoryData, m_memoryData, m_memorySize);
+		delete[] m_memoryData;
+		m_memorySize = extendedMemorySize;
+		m_memoryData = newMemoryData;
+
+		// copy extra sectiomn
+		for (uint32_t i = 0; i < m_sections.size(); ++i)
+		{
+			const Section* section = m_sections[i];
+
+			// no physical data
+			if (!section->GetPhysicalSize())
+				continue;
+
+			// check physical size
+			if (section->GetPhysicalSize() + section->GetPhysicalOffset() > fileDataSize)
+			{
+				printf("PE: Section '%hs' lies outside any phyisical data we have %d (size %d)\n",
+					section->GetName().c_str(), section->GetPhysicalSize(), section->GetPhysicalOffset());
+
+				continue;
+			}
+
+			// valid section offset ?
+			if (section->GetVirtualOffset() >= oldMemorySize)
+			{
+				printf("PE: Copying section '%hs' directly from raw file from offset %d (size %d)\n",
+					section->GetName().c_str(), section->GetPhysicalSize(), section->GetPhysicalOffset());
+
+				uint32_t sizeToCopy = section->GetPhysicalSize();
+				if (section->GetVirtualSize() < sizeToCopy)
+					sizeToCopy = section->GetVirtualSize();
+
+				memcpy(newMemoryData + section->GetVirtualOffset(),
+					fileData + section->GetPhysicalOffset(),
+					sizeToCopy);
+			}
+		}
+
+	}
+
+
+	// Set the base address and entry point
+	m_baseAddress = m_xexData.exe_address;
+	m_entryAddress = m_xexData.exe_entry_point;
+	
+	// image::Binary data loaded
+	return true;
+}
+
+Section* XexImage::CreateSection(const COFFSection& section)
+{
+	// copy name
+	char localName[sizeof(section.Name) + 1];
+	memcpy(localName, section.Name, sizeof(section.Name));
+	localName[sizeof(section.Name)] = 0;
+
+	// create section info
+	return new Section(
+		this,
+		localName,
+		section.VirtualAddress,
+		section.VirtualSize,
+		section.PointerToRawData,
+		section.SizeOfRawData,
+		0 != (section.Flags & IMAGE_SCN_MEM_READ),
+		0 != (section.Flags & IMAGE_SCN_MEM_WRITE),
+		0 != (section.Flags & IMAGE_SCN_MEM_EXECUTE),
+		"ppc");
+};
+
+
+Section::Section(XexImage* parent, 
+	const char* name,
+	const uint32_t virtualOffset,
+	const uint32_t virtualSize,
+	const uint32_t physicalOffset,
+	const uint32_t physicalSize,
+	const bool isReadable,
+	const bool isWritable,
+	const bool isExecutable,
+	const char* cpuName)
+	: m_image(parent)
+	, m_name(name)
+	, m_virtualOffset(virtualOffset)
+	, m_virtualSize(virtualSize)
+	, m_physicalOffset(physicalOffset)
+	, m_physicalSize(physicalSize)
+	, m_isReadable(isReadable)
+	, m_isWritable(isWritable)
+	, m_isExecutable(isExecutable)
+	, m_cpuName(cpuName)
+{
 }

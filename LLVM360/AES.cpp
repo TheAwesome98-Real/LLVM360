@@ -26,7 +26,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include "rijndael-alg-fst.h"
+#include "AES.h"
 
  /*
  Te0[x] = S [x].[02, 01, 01, 03];

@@ -16,8 +16,8 @@
     <Filter Include="Source Files\XEX">
       <UniqueIdentifier>{95d69e63-80aa-4f76-892f-da501053c522}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\XEX\rijandael">
-      <UniqueIdentifier>{bdbc422f-a63e-43aa-b36f-e5ae28712f14}</UniqueIdentifier>
+    <Filter Include="Source Files\Decoder">
+      <UniqueIdentifier>{8619b3f0-bafd-4d4d-9ad5-70d3640e0484}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -33,6 +33,12 @@
     <ClCompile Include="XexLoader.cpp">
       <Filter>Source Files\XEX</Filter>
     </ClCompile>
+    <ClCompile Include="AES.cpp">
+      <Filter>Source Files\XEX</Filter>
+    </ClCompile>
+    <ClCompile Include="InstructionDecoder.cpp">
+      <Filter>Source Files\Decoder</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="XexLoader.h">
@@ -41,11 +47,14 @@
     <ClInclude Include="XEXImage.h">
       <Filter>Source Files\XEX</Filter>
     </ClInclude>
-    <ClInclude Include="rijndael-alg-fst.c">
-      <Filter>Source Files\XEX\rijandael</Filter>
+    <ClInclude Include="AES.h">
+      <Filter>Source Files\XEX</Filter>
     </ClInclude>
-    <ClInclude Include="rijndael-alg-fst.h">
-      <Filter>Source Files\XEX\rijandael</Filter>
+    <ClInclude Include="InstructionDecoder.h">
+      <Filter>Source Files\Decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="Instruction.h">
+      <Filter>Source Files\Decoder</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
