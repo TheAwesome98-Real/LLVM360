@@ -5,3 +5,4 @@
 /.vs
 /LLVM360/x64/Debug
 /x64
+*.xex
