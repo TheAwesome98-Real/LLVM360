@@ -19,6 +19,9 @@
     <Filter Include="Source Files\Decoder">
       <UniqueIdentifier>{8619b3f0-bafd-4d4d-9ad5-70d3640e0484}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\LLVM">
+      <UniqueIdentifier>{0f106bb4-82a9-49e4-b20f-55cfade61199}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="LLVM360.cpp">

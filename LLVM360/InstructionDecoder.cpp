@@ -106,6 +106,7 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 
 	uint32_t opcode = ibf->GetAt(0, 6); 
 	uint32_t ext21_10 = ibf->GetAt(21, 10);
+	uint32_t ext27_3 = ibf->GetAt(27, 3);
 	uint32_t ext22_9 = ibf->GetAt(22, 9);
 	uint32_t S = ibf->GetAt(6, 5);
 	uint32_t aa = ibf->GetAt(30, 1);
@@ -116,12 +117,17 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 	uint32_t ext26_5 = ibf->GetAt(26, 5);
 
 	uint32_t b11_5 = ibf->GetAt(11, 5);
+	uint32_t b9_2 = ibf->GetAt(9, 2);
 	uint32_t b6_5 = ibf->GetAt(6, 5);
+	uint32_t b12_8 = ibf->GetAt(12, 8);
+	uint32_t b7_8 = ibf->GetAt(7, 8);
+	uint32_t b11_1 = ibf->GetAt(11, 1);
 	uint32_t b16_16 = ibf->GetAt(16, 16);
 	uint32_t b16_14 = ibf->GetAt(16, 14);
 	uint32_t b16_5 = ibf->GetAt(16, 5);
 	uint32_t b6_3 = ibf->GetAt(6, 3);
 	uint32_t b21_5 = ibf->GetAt(21, 5);
+	uint32_t b26_1 = ibf->GetAt(26, 1);
 	uint32_t b21_1 = ibf->GetAt(21, 1);
 	uint32_t b26_5 = ibf->GetAt(26, 5);
 
@@ -143,12 +149,17 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 
 		case 0: INST("nop")
 
+		case 2: INST("tdi", b6_5, b11_5, b16_16); // tdi TO,rA,SIMM
+		case 3: INST("twi", b6_5, b11_5, b16_16); // twi TO,rA,SIMM
+
 		// VMX fun
 		case 4:
 		{
 			uint32_t v21_11 = ibf->GetAt(21, 11);
 			uint32_t v26_6 = ibf->GetAt(26, 6);
 			uint32_t v21_7 = ibf->GetAt(21, 7);
+			uint32_t v21_1 = ibf->GetAt(21, 1);
+			uint32_t v22_4 = ibf->GetAt(22, 4);
 
 			switch (v21_11)
 			{
@@ -170,7 +181,20 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 			// extended
 			switch (v21_7)
 			{
-				case 12: INST("lvx", vreg6, b11_5, b16_5);
+				// 128 ?!?!?!!?!?
+
+				case 64: INST("lvlx", vreg6, b11_5, b16_5)
+				case 96: INST("lvlxl", vreg6, b11_5, b16_5)
+				case 68: INST("lvrx", vreg6, b11_5, b16_5)
+				case 100: INST("lvrxl", vreg6, b11_5, b16_5)
+				case 12: INST("lvx", vreg6, b11_5, b16_5)
+				case 44: INST("lvxl", vreg6, b11_5, b16_5)
+
+				case 24: INST("stvewx", vreg6, b11_5, b16_5)
+				case 80: INST("stvlx", vreg6, b11_5, b16_5)
+				case 112: INST("stvlxl", vreg6, b11_5, b16_5)
+				case 84: INST("stvrx", vreg6, b11_5, b16_5)
+				
 				//stvx vS,rA,rB
 				case 28: INST("stvx128", S, b11_5, b16_5) // stvx128 vS,rA,rB
 			}
@@ -181,6 +205,11 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 			case 47: INST("vnmsubfp", b6_5, b11_5, b16_5, b21_5);
 			}
 
+			switch (v21_1)
+			{
+				//// vsldoi128
+			case 0: INST("vsldoi", vreg6, vreg11, vreg16, v22_4);
+			}
 
 
 			printf("VMX OPS NOT IMPLEMENTED V21=%d, V26=%d, V21_7=%d opcode: %d\n",
@@ -200,7 +229,24 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 				
 				switch (v22_4)
 				{
+					case 0: INST("vperm", vreg6, vreg11, vreg16, 0);
+					case 1: INST("vperm", vreg6, vreg11, vreg16, 1);
+					case 2: INST("vperm", vreg6, vreg11, vreg16, 2);
+					case 3: INST("vperm", vreg6, vreg11, vreg16, 3);
+					case 4: INST("vperm", vreg6, vreg11, vreg16, 4);
+					case 5: INST("vperm", vreg6, vreg11, vreg16, 5);
+					case 6: INST("vperm", vreg6, vreg11, vreg16, 6);
+					case 7: INST("vperm", vreg6, vreg11, vreg16, 7);
 
+					case 8: INST("vpkshss", vreg6, vreg11, vreg16);
+					case 9: INST("vpkshus", vreg6, vreg11, vreg16);
+					case 10: INST("vpkswss", vreg6, vreg11, vreg16);
+					case 11: INST("vpkswus", vreg6, vreg11, vreg16);
+					case 12: INST("vpkuhum", vreg6, vreg11, vreg16);
+					case 13: INST("vpkuhus", vreg6, vreg11, vreg16);
+					case 14: INST("vpkuwum", vreg6, vreg11, vreg16);
+					case 15: INST("vpkuwus", vreg6, vreg11, vreg16);
+				
 				}
 			}
 			else
@@ -271,6 +317,18 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 				case (33 + (7 * 4)): INST("vpermwi128", vreg6, vreg16, b11_5 + 7 * 32);
 
 
+				// PACKED
+				case 97: INST("vpkd3d128", vreg6, vreg16, (uint32_t)(b11_5 / 4), (uint32_t)(b11_5 & 3), (uint32_t)(0))
+				case 101: INST("vpkd3d128", vreg6, vreg16, (uint32_t)(b11_5 / 4), (uint32_t)(b11_5 & 3), (uint32_t)(1))
+				case 105: INST("vpkd3d128", vreg6, vreg16, (uint32_t)(b11_5 / 4), (uint32_t)(b11_5 & 3), (uint32_t)(2))
+				case 109: INST("vpkd3d128", vreg6, vreg16, (uint32_t)(b11_5 / 4), (uint32_t)(b11_5 & 3), (uint32_t)(3))
+
+
+				case 111: INST("vlogefp", vreg6, vreg16)
+				case 107: INST("vexptefp", vreg6, vreg16)
+
+				case 35: INST("vcfpsxws", vreg6, vreg16, b11_5);
+				case 39: INST("vcfpuxws", vreg6, vreg16, b11_5);
 
 				// TODO, make those right 
 				// vspltisw128
@@ -420,15 +478,193 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 		// ori rA,rS,UIMM
 		case 24: INST("ori", b11_5, b6_5, b16_16);
 
+
+		//Shift Stuff
+		case 30:
+		{
+			
+			switch (ext27_3)
+			{
+			// rldicl, rldicl., rldicr, rldicr., rldic, rldic., rldimi, rldimi.
+			case 0:
+				if (b31_1) INST("rldiclRC", b11_5, S, b16_5 + (aa ? 32 : 0), b21_5 + (b26_1 ? 32 : 0))
+				INST("rldicl", b11_5, S, b16_5 + (aa ? 32 : 0), b21_5 + (b26_1 ? 32 : 0))
+
+			case 1: 
+				if (b31_1) INST("rldicrlRC", b11_5, S, b16_5 + (aa ? 32 : 0), b21_5 + (b26_1 ? 32 : 0))
+				INST("rldicr", b11_5, S, b16_5 + (aa ? 32 : 0), b21_5 + (b26_1 ? 32 : 0))
+
+			case 2: 
+				if (b31_1) INST("rldicRC", b11_5, S, b16_5 + (aa ? 32 : 0), b21_5 + (b26_1 ? 32 : 0))
+				INST("rldic", b11_5, S, b16_5 + (aa ? 32 : 0), b21_5 + (b26_1 ? 32 : 0))
+
+			case 3: 
+				if (b31_1) INST("rldimiRC", b11_5, S, b16_5 + (aa ? 32 : 0), b21_5 + (b26_1 ? 32 : 0))
+				INST("rldimi", b11_5, S, b16_5 + (aa ? 32 : 0), b21_5 + (b26_1 ? 32 : 0))
+
+			}
+
+			uint32_t ext27_4 = ibf->GetAt(27, 4);
+			switch (ext27_4)
+			{
+			// rldcl, rldcl., rldcr, rldcr.
+			case 8:
+				if (b31_1) INST("rldclRC", b11_5, S, b16_5, b21_5 + (b26_1 ? 32 : 0))
+				INST("rldcl", b11_5, S, b16_5, b21_5 + (b26_1 ? 32 : 0))
+
+			case 9: 
+				if (b31_1) INST("rldcrRC", b11_5, S, b16_5, b21_5 + (b26_1 ? 32 : 0))
+				INST("rldcr", b11_5, S, b16_5, b21_5 + (b26_1 ? 32 : 0))
+
+			}
+
+			printf("EXTENDED OPS NOT IMPLEMENTED EXTOC27_4: %i OP: %i\n", ext27_4, opcode);
+			return 0;
+		}
+
 		case 31:
 		{
 			switch (ext21_10)
 			{
-				
+				// cmpw, cmpd
+				case 0:
+				{
+					uint32_t l = ibf->GetAt(10, 1);
+					if (!l) INST("cmpw", b6_3, b11_5, b16_5)
+					INST("cmpd", b6_3, b11_5, b16_5)
+				}
+
+				// mftb (move from time base register)
+				case 371: INST("mftb", S, b11_10);
+
+				case 21: INST("ldx", S, b11_5, )
+				case 53: INST("ldux", S, b11_5, b16_5)
+
+				// lwzx, lwzux, lwax, lwaux
+				case 23: INST("lwzx", S, b11_5, b16_5)
+				case 55: INST("lwzux", S, b11_5, b16_5)
+				case 341: INST("lwax", S, b11_5, b16_5)
+				case 373: INST("lwaux", S, b11_5, b16_5)
+
+				// lhzx, lhzux, lhax, lhaux 
+				case 279: INST("lhzx", S, b11_5, b16_5)
+				case 311: INST("lhzux", S, b11_5, b16_5)
+				case 343: INST("lhax", S, b11_5, b16_5)
+				case 375: INST("lhaux", S, b11_5, b16_5)
+
+				case 790: INST("lhbrx", S, b11_5, b16_5)
+				case 534: INST("lwbrx", S, b11_5, b16_5)
+				case 918: INST("sthbrx", S, b11_5, b16_5)
+				case 662: INST("stwbrx", S, b11_5, b16_5)
+
+				// stfsx, stfsux, stfdx, stfdux, stfiwx
+				case 663: INST("stfsx", S, b11_5, b16_5)
+				case 695: INST("stfsux", S, b11_5, b16_5)
+				case 727: INST("stfdx", S, b11_5, b16_5)
+				case 759: INST("stfdux", S, b11_5, b16_5)
+				case 983: INST("stfiwx", S, b11_5, b16_5)
+
+				// stwx, stwux
+				case 151: INST("stwx", S, b11_5, b16_5)
+				case 183: INST("stwux", S, b11_5, b16_5)
+
+				// sthx, sthux
+				case 407: INST("sthx", S, b11_5, b16_5)
+				case 439: INST("sthux", S, b11_5, b16_5)
+
+				// stbx, stbux
+				case 215: INST("stbx", S, b11_5, b16_5)
+				case 247: INST("stbux", S, b11_5, b16_5)
+
+					// lbzx, lbzxu
+				case 87: INST("lbzx", S, b11_5, b16_5)
+				case 119: INST("lbzux", S, b11_5, b16_5)
+
+				// stdx, stdux
+				case 149: INST("stdx", S, b11_5, b16_5)
+				case 181: INST("stdux", S, b11_5, b16_5)
+
+				case 122: INST("popcntb", b11_5, S, b6_5)
+
+				// sync (memory bariers)
+				case 598: if (b9_2 == 0) INST("sync");
+					if (b9_2 == 1) INST("lwsync");
+					if (b9_2 == 2) INST("ptesync");
+					printf("Decode: Invalid sync instruction type\n");
+
+				// eieio
+				case 854: INST("eieio");
+
+
+				// lfsx, lfsux, lfdx, lfdux
+				case 535: INST("lfsx", S, b11_5, b16_5)
+				case 567: INST("lfsux", S, b11_5, b16_5)
+				case 599: INST("lfdx", S, b11_5, b16_5)
+				case 631: INST("lfdux", S, b11_5, b16_5)
+
+
+				// extsb, extsb., extsh, extsh., extsw, extsw., popcntb, popcntb., cntlzw, cntlzw., cntlzd, cntlzd.
+				case 954: 
+					if (b31_1) INST("extsbRC", b11_5, S, b6_5)
+					INST("extsb", b11_5, S, b6_5)
+
+				case 922:
+					if (b31_1) INST("extshRC", b11_5, S, b6_5)
+					INST("extsh", b11_5, S, b6_5)
+
+				case 986: 
+					if (b31_1) INST("extswRC", b11_5, S, b6_5)
+					INST("extsw", b11_5, S, b6_5)
+
+				case 26: 
+					if (b31_1) INST("cntlzwRC", b11_5, S, b6_5)
+					INST("cntlzw", b11_5, S, b6_5)
+
+				case 58: 
+					if (b31_1) INST("cntlzdRC", b11_5, S, b6_5)
+					INST("cntlzd", b11_5, S, b6_5)
+
+
+				// sld, sld., slw, slw., srd, srd., srw, srw., srad, srad., sraw, sraw.
+				case 27:
+					if (b31_1) INST("sldRC", b11_5, S, b16_5)
+					INST("sld", b11_5, S, b16_5)
+
+				case 24: 
+					if (b31_1) INST("slwRC", b11_5, S, b16_5)
+					INST("slw", b11_5, S, b16_5)
+
+				case 539:
+					if (b31_1) INST("srdRC", b11_5, S, b16_5)
+					INST("srd", b11_5, S, b16_5)
+
+				case 536: 
+					if (b31_1) INST("srwRC", b11_5, S, b16_5)
+					INST("srw", b11_5, S, b16_5)
+
+				case 794: 
+					if (b31_1) INST("sradRC", b11_5, S, b16_5)
+					INST("srad", b11_5, S, b16_5)
+
+				case 792: 
+					if (b31_1) INST("srawRC", b11_5, S, b16_5)
+					INST("sraw", b11_5, S, b16_5)
+
+
 				// and, and., or, or., xor, xor., nand, nand, nor, nor., eqv, eqv., andc, andc., orc, orc
 				case 28:
 					if (b31_1) INST("andRC", b11_5, S, b16_5)
 					INST("and", b11_5, S, b16_5)
+
+
+				// cmplw, cmpld
+				case 32:
+				{
+					uint32_t l = ibf->GetAt(10, 1);
+					if (!l) INST("cmplw", b6_3, b11_5, b16_5);
+					INST("cmpld", b6_3, b11_5, b16_5);
+				}
+
 
 				// or rA,rS,rB (also RC)
 				case 444:
@@ -459,19 +695,95 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 					if (b31_1) INST("orcRC", b11_5, S, b16_5)
 					INST("orc", b11_5, S, b16_5)
 
+				// sradi, sradi., srawi, srawi.
+				case 824:
+					if (b31_1) INST("srawiRC", b11_5, S, b16_5)
+						INST("srawi", b11_5, S, b16_5)
 
-				
+				case 826:										 // 413*3+0
+					if (b31_1) INST("sradiRC", b11_5, S, b16_5)
+						INST("sradi", b11_5, S, b16_5)
 
-						// mtspr, mfspr (move to/from system register)
+				case 827:								 // 413*3+1
+					if (b31_1) INST("sradiRC", b11_5, S, b16_5)
+						INST("sradi", b11_5, S, b16_5)
+
+					// cache operations
+				case 86: INST("dcbf", b11_5, b16_5);
+				case 54: INST("dcbst", b11_5, b16_5);
+				case 278: INST("dcbt", b11_5, b16_5);
+				case 246: INST("dcbtst", b11_5, b16_5);
+				case 1014: INST("dcbz", b11_5, b16_5);
+
+					// lwarx/stwcx
+				case 20: INST("lwarx", S, b11_5, b16_5)
+				case 84: INST("ldarx", S, b11_5, b16_5)
+				case 150: INST("stwcxRC", S, b11_5, b16_5)
+				case 214:  INST("stdcxRC", S, b11_5, b16_5)
+
+				// mtspr, mfspr (move to/from system register)
 				case 467: INST("mtspr", b11_10, b6_5)
 				case 339: INST("mfspr", b6_5, b11_10)
+
+				// MSR (Machine State Register)
+				case 83: INST("mfmsr", b6_5)
+				case 178: INST("mtmsrd", b6_5)
+
+				// mtcrf, mtocrf
+				case 144:
+					if (b11_1 == 0) INST("mtcrf", b12_8, b6_5);
+					INST("mtocrf", b12_8, b6_5);
+
+				// mfcr, mfocrf
+				case 19:
+					if (b11_1 == 0) INST("mfcr", b6_5);
+					INST("mfocrf", b12_8, b6_5);
 			}
+
+
+			uint32_t ext21_11 = ibf->GetAt(21, 11);
+			switch (ext21_11)
+			{
+				// VMX LOADS
+				case 12: INST("lvsl", b6_5, b11_5, b16_5)
+				case 1038: INST("lvlx", S, b11_5, b16_5)
+				case 1550: INST("lvlxl", S, b11_5, b16_5)
+				case 1102: INST("lvrx", S, b11_5, b16_5)
+				case 1614: INST("lvrxl", S, b11_5, b16_5)
+				case 206: INST("lvx", S, b11_5, b16_5)
+				case 718: INST("lvxl", S, b11_5, b16_5)
+				case 76: INST("lvsr", S, b11_5, b16_5)
+
+				//STORE
+
+				case 270: INST("stvebx", b6_5, b11_5, b16_5)
+				case 334: INST("stvehx", b6_5, b11_5, b16_5)
+				case 398: INST("stvewx", b6_5, b11_5, b16_5)
+				case 1294: INST("stvlx", b6_5, b11_5, b16_5)
+				case 1806: INST("stvlxl", b6_5, b11_5, b16_5)
+				case 1358: INST("stvrx", b6_5, b11_5, b16_5)
+				case 1870: INST("stvrxl", b6_5, b11_5, b16_5)
+				case 462: INST("stvx", b6_5, b11_5, b16_5)
+				case 974: INST("stvxl", b6_5, b11_5, b16_5)
+			}
+
+
 
 			// math extended
 			switch (ext22_9)
 			{
+				case 10:
+					if (!b21_1 && !b31_1)	INST("addc", S, b11_5, b16_5);
+					if (!b21_1 && b31_1)	INST("addcRC", S, b11_5, b16_5);
+					if (b21_1 && !b31_1)	INST("addcOE", S, b11_5, b16_5);
+					if (b21_1 && b31_1)		INST("addcOERC", S, b11_5, b16_5);
 
-				
+				// neg, neg., nego, nego.				
+				case 104:
+					if (!b21_1 && !b31_1)	INST("neg", S, b11_5);
+					if (!b21_1 && b31_1)	INST("negRC", S, b11_5);
+					if (b21_1 && !b31_1)	INST("negOE", S, b11_5);
+					if (b21_1 && b31_1)		INST("negOERC", S, b11_5);
 
 				// subfe, subfe., subfeo, subfeo.
 				case 136:
@@ -480,6 +792,31 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 					if (b21_1 && !b31_1)	INST("subfeOE", S, b11_5, b16_5);
 					if (b21_1 && b31_1)		INST("subfeOERC", S, b11_5, b16_5);
 
+				case 138:
+					if (!b21_1 && !b31_1)	INST("adde", S, b11_5, b16_5);
+					if (!b21_1 && b31_1)	INST("addeRC", S, b11_5, b16_5);
+					if (b21_1 && !b31_1)	INST("addeOE", S, b11_5, b16_5);
+					if (b21_1 && b31_1)		INST("addeOERC", S, b11_5, b16_5);
+
+				case 200:
+					if (!b21_1 && !b31_1)	INST("subfze", S, b11_5);
+					if (!b21_1 && b31_1)	INST("subfzeRC", S, b11_5);
+					if (b21_1 && !b31_1)	INST("subfzeOE", S, b11_5);
+					if (b21_1 && b31_1)		INST("subfzeOERC", S, b11_5);
+
+				// mullw, mullw., mullwo, mullwo.
+				case 235:
+					if (!b21_1 && !b31_1)	INST("mullw", S, b11_5, b16_5);
+					if (!b21_1 && b31_1)	INST("mullwRC", S, b11_5, b16_5);
+					if (b21_1 && !b31_1)	INST("mullwOE", S, b11_5, b16_5);
+					if (b21_1 && b31_1)		INST("mullwOERC", S, b11_5, b16_5);
+				
+
+				case 233:
+					if (!b21_1 && !b31_1)	INST("mulld", S, b11_5, b16_5);
+					if (!b21_1 && b31_1)	INST("mulldRC", S, b11_5, b16_5);
+					if (b21_1 && !b31_1)	INST("mulldOE", S, b11_5, b16_5);
+					if (b21_1 && b31_1)		INST("mulldOERC", S, b11_5, b16_5);
 
 				// add rD,rA,rB (also RC OE)
 				case 266:
@@ -488,6 +825,22 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 					if (b21_1 && !b31_1)	INST("addOE", S, b11_5, b16_5);
 					if (b21_1 && b31_1)		INST("addOERC", S, b11_5, b16_5);
 
+
+				// addze, addze., addzeo, addzeo.			
+				case 202:
+					if (!b21_1 && !b31_1)	INST("addze", S, b11_5);
+					if (!b21_1 && b31_1)	INST("addzeRC", S, b11_5);
+					if (b21_1 && !b31_1)	INST("addzeOE", S, b11_5);
+					if (b21_1 && b31_1)		INST("addzeOERC", S, b11_5);
+
+
+				// subfc, subfc., subfco, subfco.
+				case 8:
+					if (!b21_1 && !b31_1)	INST("subfc", S, b11_5, b16_5);
+					if (!b21_1 && b31_1)	INST("subfcRC", S, b11_5, b16_5);
+					if (b21_1 && !b31_1)	INST("subfcOE", S, b11_5, b16_5);
+					if (b21_1 && b31_1)		INST("subfcOERC", S, b11_5, b16_5);
+
 				// subf rD,rA,rB (also RC OE)
 				case 40:
 					if (!b21_1 && !b31_1)	INST("subf", S, b11_5, b16_5);
@@ -495,16 +848,50 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 					if (b21_1 && !b31_1)	INST("subfOE", S, b11_5, b16_5);
 					if (b21_1 && b31_1)		INST("subfOERC", S, b11_5, b16_5);
 
+				case 234:
+					if (!b21_1 && !b31_1)	INST("addme", S, b11_5);
+					if (!b21_1 && b31_1)	INST("addmeRC", S, b11_5);
+					if (b21_1 && !b31_1)	INST("addmeOE", S, b11_5);
+					if (b21_1 && b31_1)		INST("addmeOERC", S, b11_5);
+
+				case 489:
+					if (!b21_1 && !b31_1)	INST("divd", S, b11_5, b16_5);
+					if (!b21_1 && b31_1)	INST("divdRC", S, b11_5, b16_5);
+					if (b21_1 && !b31_1)	INST("divdOE", S, b11_5, b16_5);
+					if (b21_1 && b31_1)		INST("divdOERC", S, b11_5, b16_5);
+
+				// divw, divw., divwo, divwo.
+				case 491:
+					if (!b21_1 && !b31_1)	INST("divw", S, b11_5, b16_5);
+					if (!b21_1 && b31_1)	INST("divwRC", S, b11_5, b16_5);
+					if (b21_1 && !b31_1)	INST("divwOE", S, b11_5, b16_5);
+					if (b21_1 && b31_1)		INST("divwOERC", S, b11_5, b16_5);
+
+				// divdu, divdu., divduo, divduo.
+				case 457:
+					if (!b21_1 && !b31_1)	INST("divdu", S, b11_5, b16_5);
+					if (!b21_1 && b31_1)	INST("divduRC", S, b11_5, b16_5);
+					if (b21_1 && !b31_1)	INST("divduOE", S, b11_5, b16_5);
+					if (b21_1 && b31_1)		INST("divduOERC", S, b11_5, b16_5);
+
+				// divwu, divwu., divwuo, divwuo.
+				case 459:
+					if (!b21_1 && !b31_1)	INST("divwu", S, b11_5, b16_5);
+					if (!b21_1 && b31_1)	INST("divwuRC", S, b11_5, b16_5);
+					if (b21_1 && !b31_1)	INST("divwuOE", S, b11_5, b16_5);
+					if (b21_1 && b31_1)		INST("divwuOERC", S, b11_5, b16_5);
 			
 			}
 
-			printf("EXTENDED OPS NOT IMPLEMENTED EXTOC21: %i EXTOC21: %i OP: %i\n", ext21_10, ext22_9, opcode);
+			printf("EXTENDED OPS NOT IMPLEMENTED EXTOC21_10: %i EXTOC21_11: %i EXTOC22_9: %i OP: %i\n", ext21_10, ext21_11, ext22_9, opcode);
 			return 0;
 		}
 		
 
 		case 32: INST("lwz", S, b16_16, b11_5) // lwz rS,d(rA)
 		case 33: INST("lwzu", S, b16_16, b11_5) // lwzu rS,d(rA)
+		case 34: INST("lbz", S, b16_16, b11_5); // lbz rS,d(rA)
+		case 35: INST("lbzu", S, b16_16, b11_5); // lbzu rS,d(rA)
 		case 36: INST("stw", S, b16_16, b11_5) // stw rS,d(rA)
 		case 37: INST("stwu", S, b16_16, b11_5) // stwu rS,d(rA)
 		case 38: INST("stb", S, b16_16, b11_5) // stb rS,d(rA)
@@ -521,9 +908,9 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 		case 50: INST("lfd", S, b16_16, b11_5) // lfd frD, d(rA)
 		case 51: INST("lfdu", S, b16_16, b11_5); // lfdu frD, d(rA)
 		case 52: INST("stfs", S, b16_16, b11_5) // stfs frS,d(rA)
-
+		case 53: INST("stfsu", S, b16_16, b11_5); // stfsu frS, d(rA)
 		case 54: INST("stfd", S, b16_16, b11_5) // stfd frS, d(rA)
-
+		case 55: INST("stfdu", S, b16_16, b11_5); // stfdu frS, d(rA)
 
 		// offset is *4
 		case 58:
@@ -595,6 +982,21 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 		{
 			switch (ext21_10)
 			{
+				case 0: INST("fcmpu", b6_3, b11_5, b16_5)
+				case 32: INST("fcmpo", b6_3, b11_5, b16_5)
+
+				case 814: 
+					if (b31_1) INST("fctidRC", S, b16_5)
+						INST("fctid", S, b16_5)
+
+				case 14: 
+					if (b31_1) INST("fctiwRC", S, b16_5)
+						INST("fctiw", S, b16_5)
+
+				case 15: 
+					if (b31_1) INST("fctiwzRC", S, b16_5)
+						INST("fctiwz", S, b16_5)
+
 				// frsp frD,frB (also RC)
 				case 12:
 					if (b31_1) INST("frspRC", S, b16_5)
@@ -627,6 +1029,15 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t* stride, Instructio
 				case 846:
 					if (b31_1) INST("fcfidRC", S, b16_5)
 					INST("fcfid", S, b16_5)
+
+
+				case 583:
+					if (b31_1) INST("mffsRC", b6_5)
+					INST("mffs", b6_5)
+
+				case 711:
+					if (b31_1) INST("mtfsfRC", b7_8, b16_5)
+					INST("mtfsf", b7_8, b16_5)
 			}
 
 			switch (ext26_5)

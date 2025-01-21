@@ -7,8 +7,11 @@
 #include "XexLoader.h"
 #include "Instruction.h"
 #include "InstructionDecoder.h"
+#include <chrono>
 
 
+bool printINST = true;
+bool printLLVMIR = true;
 
 
 int main()
@@ -34,7 +37,7 @@ int main()
 		// compute code range
 		const auto baseAddress = xex->GetBaseAddress();
 		const auto sectionBaseAddress = baseAddress + section->GetVirtualOffset();
-		const auto endAddress = baseAddress + section->GetVirtualOffset() + section->GetVirtualSize();
+		auto endAddress = baseAddress + section->GetVirtualOffset() + section->GetVirtualSize();
 
 		// process all instructions in the code range
 		auto address = sectionBaseAddress;
@@ -44,7 +47,12 @@ int main()
 		InstructionDecoder decoder(section);
 
 		printf("\n\n\n");
+		uint32_t instCount = 0;
+		auto start = std::chrono::high_resolution_clock::now();
 
+
+		uint32_t addrOverrider = 0x82060150;
+		endAddress = addrOverrider;
 		while (address < endAddress)
 		{
 			Instruction instruction;
@@ -59,24 +67,39 @@ int main()
 			// use the instruction and emit LLVM IR code
 
 
+			if(printINST)
+			{
+				// print raw PPC decoded instruction + operands
+				std::ostringstream oss;
+				oss << std::hex << std::uppercase << std::setfill('0');
+				oss << std::setw(8) << address << ":   " << instruction.opcName;
 
-			// print the instruction + operands
+				for (size_t i = 0; i < instruction.ops.size(); ++i) {
+					oss << " " << std::setw(2) << static_cast<int>(instruction.ops.at(i));
+				}
+
+				std::string output = oss.str();
+				printf("%s\n", output.c_str());
 
 
-			
-			std::ostringstream oss;
-			oss << std::hex << std::uppercase << std::setfill('0');
-			oss << std::setw(8) << address << ":   " << instruction.opcName;
-
-			for (size_t i = 0; i < instruction.ops.size(); ++i) {
-				oss << " " << std::setw(2) << static_cast<int>(instruction.ops.at(i));
+				// print LLVM IR Output
+				if(printLLVMIR)
+				{
+					printf("\n");
+				}
 			}
 
-			std::string output = oss.str();
-			printf("%s\n", output.c_str());
 			// move to the next instruction
 			address += instructionSize;
+			instCount++;
 		}
+		// Stop the timer
+		auto end = std::chrono::high_resolution_clock::now();
+
+		// Calculate the duration
+		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+		printf("\n\n\nDecoding process took: %f seconds\n", duration.count() / 1000000.0);
+		printf("Decoded %i PPC Instructions\n", instCount);
 	}
 
 	
