@@ -10,9 +10,9 @@ class IRGenerator
 {
 public:
 	// llvm references
-	static std::unique_ptr<llvm::LLVMContext> TheContext;
-	static std::unique_ptr<llvm::IRBuilder<>> Builder;
-	static std::unique_ptr<llvm::Module> TheModule;
+	static std::unique_ptr<llvm::LLVMContext> m_llvmCxt;
+	static std::unique_ptr<llvm::IRBuilder<>> m_builder;
+	static std::unique_ptr<llvm::Module> m_module;
 	
 	// Xenon State stuff
 	XexImage* m_xexImage;
