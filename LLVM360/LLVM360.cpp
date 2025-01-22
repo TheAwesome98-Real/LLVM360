@@ -1,3 +1,5 @@
+#include "llvm/ADT/APFloat.h"
+
 #include <iostream>
 #include <fstream> 
 #include <stdio.h>
@@ -8,6 +10,8 @@
 #include "Instruction.h"
 #include "InstructionDecoder.h"
 #include <chrono>
+#include "IRGenerator.h"
+
 
 
 bool printINST = true;
@@ -45,6 +49,8 @@ int main()
 		int lastCount = -1;
 
 		InstructionDecoder decoder(section);
+		IRGenerator* irGen = new IRGenerator(xex);
+		irGen->Initialize();
 
 		printf("\n\n\n");
 		uint32_t instCount = 0;
@@ -85,7 +91,14 @@ int main()
 				// print LLVM IR Output
 				if(printLLVMIR)
 				{
+					bool result = irGen->EmitInstruction(instruction);
 					printf("\n");
+
+					if (!result)
+					{
+						__debugbreak();
+						return 1;
+					}
 				}
 			}
 
@@ -105,4 +118,5 @@ int main()
 	
 
     printf("Hello, World!\n");
+	printf("Say hi to the new galaxy note\n");
 }

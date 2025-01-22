@@ -11,4 +11,10 @@ struct Instruction
 	std::string opcName;
 
 	std::vector<uint32_t> ops;
+
+
+	inline operator std::string()
+	{
+		return opcName;
+	}
 };

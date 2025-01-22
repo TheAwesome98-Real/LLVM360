@@ -6,3 +6,4 @@
 /LLVM360/x64/Debug
 /x64
 *.xex
+/llvm-19.1.5

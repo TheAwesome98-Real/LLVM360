@@ -42,6 +42,9 @@
     <ClCompile Include="InstructionDecoder.cpp">
       <Filter>Source Files\Decoder</Filter>
     </ClCompile>
+    <ClCompile Include="IRGenerator.cpp">
+      <Filter>Source Files\LLVM</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="XexLoader.h">
@@ -58,6 +61,15 @@
     </ClInclude>
     <ClInclude Include="Instruction.h">
       <Filter>Source Files\Decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="IRGenerator.h">
+      <Filter>Source Files\LLVM</Filter>
+    </ClInclude>
+    <ClInclude Include="XenonState.h">
+      <Filter>Source Files\LLVM</Filter>
+    </ClInclude>
+    <ClInclude Include="InstructionEmitter.h">
+      <Filter>Source Files\LLVM</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
