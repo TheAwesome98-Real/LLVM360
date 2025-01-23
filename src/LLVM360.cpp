@@ -3,12 +3,12 @@
 #include <stdio.h>
 #include <sstream>
 #include <iomanip>
-#include "Utils.h"
-#include "XexLoader.h"
-#include "Instruction.h"
-#include "InstructionDecoder.h"
+#include "misc/Utils.h"
+#include "Decoder/Instruction.h"
+#include "Decoder/InstructionDecoder.h"
 #include <chrono>
-// #include "IRGenerator.h"
+#include "IR/IRGenerator.h"
+#include <Xex/XexLoader.h>
 
 bool printINST = true;
 bool printLLVMIR = true;
@@ -42,9 +42,14 @@ int main() {
     bool forceBlockStart = false;
     int lastCount = -1;
 
+
+    llvm::LLVMContext cxt;
+    llvm::Module mod("Xenon", cxt);
+    llvm::IRBuilder<llvm::NoFolder> builder(cxt);
+
     InstructionDecoder decoder(section);
-    // IRGenerator* irGen = new IRGenerator(xex, mod, builder);
-    // irGen->Initialize();
+    IRGenerator* irGen = new IRGenerator(xex, mod, builder);
+    irGen->Initialize();
 
     printf("\n\n\n");
     uint32_t instCount = 0;
@@ -52,12 +57,14 @@ int main() {
 
     uint32_t addrOverrider = 0x82060150;
     endAddress = addrOverrider;
-    while (address < endAddress) {
+    while (address < endAddress) 
+    {
       Instruction instruction;
       const auto instructionSize = decoder.GetInstructionAt(address, instruction);
-      if (instructionSize == 0) {
-        printf("Failed to decode instruction at %08X\n", address);
-        break;
+      if (instructionSize == 0) 
+      {
+          printf("Failed to decode instruction at %08X\n", address);
+          break;
       }
 
       // decode instruction bytes to Intruction struct for later use
@@ -78,10 +85,10 @@ int main() {
 
         // print LLVM IR Output
         if (printLLVMIR) {
-          // bool result = irGen->EmitInstruction(instruction);
+          bool result = irGen->EmitInstruction(instruction);
           printf("\n");
 
-          if (!0) {
+          if (!result) {
             __debugbreak();
             return 1;
           }

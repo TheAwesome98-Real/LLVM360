@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 #include "Instruction.h"
-#include "XexLoader.h"
+#include "Xex/XexLoader.h"
 
 static inline uint32_t SwapInstrBytes(const uint32_t v) {
   uint32_t ret;

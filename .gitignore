@@ -6,8 +6,4 @@
 /LLVM360/x64/Debug
 /x64
 *.xex
-/llvm-19.1.5
-/LLVM360/x64/Release
-/LLVMRecomp/build/CMakeFiles
-/LLVMRecomp/build/Debug
-/LLVMRecomp/build/example.dir/Debug
+/out

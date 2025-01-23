@@ -32,7 +32,7 @@ bool IRGenerator::EmitInstruction(Instruction instr) {
   if (instructionMap.find(instr.opcName) != instructionMap.end()) {
     instructionMap[instr.opcName](instr, this);
   } else {
-    printf("Instruction:   %s  not Implemented", instr.opcName.c_str());
+        printf("Instruction:   %s  not Implemented", instr.opcName.c_str());
   }
 
   return false;

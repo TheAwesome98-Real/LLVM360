@@ -6,8 +6,8 @@
 #include "llvm/IR/Module.h"
 #include <llvm/IR/NoFolder.h>
 #include "XenonState.h"
-#include "XexLoader.h"
-#include "Instruction.h"
+#include "Xex/XexLoader.h"
+#include "Decoder/Instruction.h"
 #include <Windows.h>
 
 class IRGenerator {
