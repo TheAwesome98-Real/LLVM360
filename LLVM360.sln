@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.12.35527.113 d17.12
+VisualStudioVersion = 17.12.35527.113
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LLVM360", "LLVM360\LLVM360.vcxproj", "{0C33C821-8AB8-4605-BEEB-25ACCF7CB1A3}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "example", "LLVMRecomp\build\example.vcxproj", "{63AE4EB6-781A-3D9A-A456-23921AA1AB2C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,14 +13,14 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{0C33C821-8AB8-4605-BEEB-25ACCF7CB1A3}.Debug|x64.ActiveCfg = Debug|x64
-		{0C33C821-8AB8-4605-BEEB-25ACCF7CB1A3}.Debug|x64.Build.0 = Debug|x64
-		{0C33C821-8AB8-4605-BEEB-25ACCF7CB1A3}.Debug|x86.ActiveCfg = Debug|Win32
-		{0C33C821-8AB8-4605-BEEB-25ACCF7CB1A3}.Debug|x86.Build.0 = Debug|Win32
-		{0C33C821-8AB8-4605-BEEB-25ACCF7CB1A3}.Release|x64.ActiveCfg = Release|x64
-		{0C33C821-8AB8-4605-BEEB-25ACCF7CB1A3}.Release|x64.Build.0 = Release|x64
-		{0C33C821-8AB8-4605-BEEB-25ACCF7CB1A3}.Release|x86.ActiveCfg = Release|Win32
-		{0C33C821-8AB8-4605-BEEB-25ACCF7CB1A3}.Release|x86.Build.0 = Release|Win32
+		{63AE4EB6-781A-3D9A-A456-23921AA1AB2C}.Debug|x64.ActiveCfg = Debug|x64
+		{63AE4EB6-781A-3D9A-A456-23921AA1AB2C}.Debug|x64.Build.0 = Debug|x64
+		{63AE4EB6-781A-3D9A-A456-23921AA1AB2C}.Debug|x86.ActiveCfg = Debug|x64
+		{63AE4EB6-781A-3D9A-A456-23921AA1AB2C}.Debug|x86.Build.0 = Debug|x64
+		{63AE4EB6-781A-3D9A-A456-23921AA1AB2C}.Release|x64.ActiveCfg = Release|x64
+		{63AE4EB6-781A-3D9A-A456-23921AA1AB2C}.Release|x64.Build.0 = Release|x64
+		{63AE4EB6-781A-3D9A-A456-23921AA1AB2C}.Release|x86.ActiveCfg = Release|x64
+		{63AE4EB6-781A-3D9A-A456-23921AA1AB2C}.Release|x86.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
