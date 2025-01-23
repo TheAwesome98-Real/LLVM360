@@ -11,6 +11,10 @@ XexImage::XexImage(const wchar_t *path)
 }
 
 bool XexImage::LoadXex() {
+
+    // without initializing the xexData debugging in visual studio was messing with the title id (cause random value) ups :3
+    m_xexData = {};
+
   // open the file
   FILE *f = nullptr;
   _wfopen_s(&f, m_path.c_str(), L"rb");
@@ -767,7 +771,7 @@ Section *XexImage::CreateSection(const COFFSection &section) {
     0 != (section.Flags & IMAGE_SCN_MEM_EXECUTE),
     "ppc");
 };
-
+ 
 Section::Section(XexImage *parent,
   const char *name,
   const uint32_t virtualOffset,

@@ -9,6 +9,7 @@
 #include <chrono>
 #include "IR/IRGenerator.h"
 #include <Xex/XexLoader.h>
+#include <conio.h>  // for _kbhit
 
 bool printINST = true;
 bool printLLVMIR = true;
@@ -108,6 +109,7 @@ int main() {
     printf("Decoded %i PPC Instructions\n", instCount);
   }
 
-  printf("Hello, World!\n");
-  printf("Say hi to the new galaxy note\n");
+    // Splash texts
+    printf("Hello, World!\n");
+    printf("Say hi to the new galaxy note\n");
 }
