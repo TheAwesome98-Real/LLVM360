@@ -45,11 +45,11 @@ int main() {
 
 
     llvm::LLVMContext cxt;
-    llvm::Module mod("Xenon", cxt);
+    llvm::Module* mod = new llvm::Module("Xenon", cxt);
     llvm::IRBuilder<llvm::NoFolder> builder(cxt);
 
     InstructionDecoder decoder(section);
-    IRGenerator* irGen = new IRGenerator(xex, mod, builder);
+    IRGenerator* irGen = new IRGenerator(xex, mod, &builder);
     irGen->Initialize();
 
     printf("\n\n\n");
@@ -57,7 +57,7 @@ int main() {
     auto start = std::chrono::high_resolution_clock::now();
 
     uint32_t addrOverrider = 0x82060150;
-    endAddress = addrOverrider;
+    //endAddress = addrOverrider;
     while (address < endAddress) 
     {
       Instruction instruction;
@@ -84,16 +84,17 @@ int main() {
         std::string output = oss.str();
         printf("%s\n", output.c_str());
 
-        // print LLVM IR Output
-        if (printLLVMIR) {
+
+      }
+
+      // print LLVM IR Output
+      if (printLLVMIR) {
           bool result = irGen->EmitInstruction(instruction);
-          printf("\n");
 
           if (!result) {
-            __debugbreak();
-            return 1;
+              __debugbreak();
+              return 1;
           }
-        }
       }
 
       // move to the next instruction

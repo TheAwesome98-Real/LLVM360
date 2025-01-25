@@ -180,10 +180,11 @@ public:
 
   uint8_t *m_textData;
 
-private:
   // file header
   XEXImageData m_xexData;
   PEOptHeader m_peHeader;
+private:
+  
 
   // library names
   std::vector<std::string> m_libNames;

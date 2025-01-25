@@ -39,42 +39,34 @@ public:
   uint32		FPSCR;
   uint32		SAT;*/
 
-  llvm::Value *R0;
-  llvm::Value *R1;
-  llvm::Value *R2;
-  llvm::Value *R3;
-  llvm::Value *R4;
-  llvm::Value *R5;
-  llvm::Value *R6;
-  llvm::Value *R7;
-  llvm::Value *R8;
-  llvm::Value *R9;
-  llvm::Value *R10;
-  llvm::Value *R11;
-  llvm::Value *R12;
-  llvm::Value *R13;
-  llvm::Value *R14;
-  llvm::Value *R15;
-  llvm::Value *R16;
-  llvm::Value *R17;
-  llvm::Value *R18;
-  llvm::Value *R19;
-  llvm::Value *R20;
-  llvm::Value *R21;
-  llvm::Value *R22;
-  llvm::Value *R23;
-  llvm::Value *R24;
-  llvm::Value *R25;
-  llvm::Value *R26;
-  llvm::Value *R27;
-  llvm::Value *R28;
-  llvm::Value *R29;
-  llvm::Value *R30;
-  llvm::Value *R31;
-  llvm::Value *R32;
+  // uint64 regs (r0, r1, r23 etc)
+  std::array<llvm::Value*, 32> RR;
 
   // 32 Floating point Registers and
   // 128 VMX Vector Registers
   std::array<llvm::Value *, 32> FR;
   std::array<llvm::Value *, 128> VR;
+
+
+
+ 
+
+  llvm::Value* getRR(uint32_t value)
+  {
+	  return RR[value];
+  }
+
+  llvm::Value* getSPR(uint32_t n)
+  {
+      uint32_t spr4 = (n & 0b1111100000) >> 5;
+      uint32_t spr9 = n & 0b0000011111;
+      
+      
+      
+
+	  if (spr4 == 1) return XER;
+	  if (spr4 == 8) return LR;
+	  if (spr4 == 9) return CTR;
+	  return NULL;
+  }
 };

@@ -13,17 +13,23 @@
 class IRGenerator {
 public:
   // llvm references
-  llvm::IRBuilder<llvm::NoFolder> &m_builder;
-  llvm::Module &m_module;
+  llvm::IRBuilder<llvm::NoFolder>* m_builder;
+  llvm::Module* m_module;
 
   // Xenon State stuff
   XexImage *m_xexImage;
   XenonState *xenonCPU;
 
-  IRGenerator(XexImage *xex, llvm::Module &mod, llvm::IRBuilder<llvm::NoFolder> &builder);
+  IRGenerator(XexImage *xex, llvm::Module* mod, llvm::IRBuilder<llvm::NoFolder>* builder);
   void Initialize();
   bool EmitInstruction(Instruction instr);
 
-private:
+
   void InitLLVM();
+  llvm::BasicBlock* createBasicBlock(llvm::Function* mainFn, uint32_t address);
+  llvm::BasicBlock* getCreateBBinMap(uint32_t address);
+  bool isBBinMap(uint32_t address);
+
+  llvm::Function* mainFn;
+  std::unordered_map<uint32_t, llvm::BasicBlock*> bb_map;
 };
