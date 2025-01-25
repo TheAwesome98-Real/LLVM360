@@ -8,26 +8,8 @@ public:
   llvm::Value *CTR;
   llvm::Value *MSR;
   llvm::Value *XER;
+  llvm::Value *CR;
 
-  llvm::Value *CR[8];
-
-  llvm::Value *CR0_SO;
-  llvm::Value *CR1_SO;
-  llvm::Value *CR2_SO;
-  llvm::Value *CR3_SO;
-  llvm::Value *CR4_SO;
-  llvm::Value *CR5_SO;
-  llvm::Value *CR6_SO;
-  llvm::Value *CR7_SO;
-
-  llvm::Value *CR0_EQ;
-  llvm::Value *CR1_EQ;
-  llvm::Value *CR2_EQ;
-  llvm::Value *CR3_EQ;
-  llvm::Value *CR4_EQ;
-  llvm::Value *CR5_EQ;
-  llvm::Value *CR6_EQ;
-  llvm::Value *CR7_EQ;
 
   /*static const uint32 FPSCR_ZE = 1U << 27;
   static const uint32 FPSCR_XE = 1U << 28;
@@ -61,12 +43,14 @@ public:
       uint32_t spr4 = (n & 0b1111100000) >> 5;
       uint32_t spr9 = n & 0b0000011111;
       
-      
-      
-
 	  if (spr4 == 1) return XER;
 	  if (spr4 == 8) return LR;
 	  if (spr4 == 9) return CTR;
 	  return NULL;
+  }
+
+  llvm::Value* getFR(uint32_t n)
+  {
+	  return FR[n];
   }
 };

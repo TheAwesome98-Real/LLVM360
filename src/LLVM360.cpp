@@ -83,8 +83,6 @@ int main() {
 
         std::string output = oss.str();
         printf("%s\n", output.c_str());
-
-
       }
 
       // print LLVM IR Output

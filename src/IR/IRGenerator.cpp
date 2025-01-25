@@ -32,6 +32,8 @@ void IRGenerator::InitLLVM() {
     }
 
     xenonCPU->LR = m_builder->CreateAlloca(m_builder->getInt64Ty(), nullptr, "lr");
+    xenonCPU->CR = m_builder->CreateAlloca(m_builder->getInt32Ty(), nullptr, "cr");
+    xenonCPU->CTR = m_builder->CreateAlloca(m_builder->getInt64Ty(), nullptr, "ctr");
 
     // add xex entrypoint basic block to list;
     llvm::BasicBlock* xex_entry = llvm::BasicBlock::Create(m_module->getContext(), "XEX_entry", mainFn);
@@ -69,6 +71,15 @@ bool IRGenerator::EmitInstruction(Instruction instr) {
     {
          {"mfspr", mfspr_e },
          {"bl", bl_e },
+         {"stfd", stfd_e },
+         {"stwu", stwu_e },
+         {"addi", addi_e },
+         {"li", addi_e }, // load immediate is just an addi but rA is 0
+         {"lis", addis_e }, // same thing
+         {"addis", addis_e },
+         {"or", orx_e },
+         {"orRC", orx_e },
+         {"bc", bcx_e },
     };
 
     // check if at address a bb is present if true then set the insertPoint to it
