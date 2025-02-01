@@ -3,8 +3,8 @@
 
 inline void mfspr_e(Instruction instr, IRGenerator *gen) 
 {
-    auto lrValue = gen->m_builder->CreateLoad(gen->m_builder->getInt64Ty(), gen->xenonCPU->getSPR(instr.ops[1]), "load_spr");
-    gen->m_builder->CreateStore(lrValue, gen->xenonCPU->getRR(instr.ops[0]));
+    auto lrValue = gen->m_builder->CreateLoad(gen->m_builder->getInt64Ty(), gen->getSPR(instr.ops[1]), "load_spr");
+    gen->m_builder->CreateStore(lrValue, gen->getRegister("RR", instr.ops[0]));
 }
 
 uint32_t signExtend(uint32_t value, int size) 
@@ -37,16 +37,16 @@ llvm::Value* getBOOperation(IRGenerator* gen, Instruction instr, llvm::Value* bi
     if (!isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) &&
         !isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
     {
-        gen->m_builder->CreateSub(gen->xenonCPU->CTR, llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_builder->getContext()), 1));
-        llvm::Value* isCTRnz = gen->m_builder->CreateICmpNE(gen->xenonCPU->CTR, 0, "ctrnz");
+        gen->m_builder->CreateSub(gen->getRegister("CTR"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_builder->getContext()), 1));
+        llvm::Value* isCTRnz = gen->m_builder->CreateICmpNE(gen->getRegister("CTR"), 0, "ctrnz");
         should_branch = gen->m_builder->CreateAnd(isCTRnz, gen->m_builder->CreateNot(bi), "shBr");
     }
     // 0001y
     if (isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) &&
         !isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
     {
-        gen->m_builder->CreateSub(gen->xenonCPU->CTR, llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_builder->getContext()), 1));
-        llvm::Value* isCTRz = gen->m_builder->CreateICmpEQ(gen->xenonCPU->CTR, 0, "ctrnz");
+        gen->m_builder->CreateSub(gen->getRegister("CTR"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_builder->getContext()), 1));
+        llvm::Value* isCTRz = gen->m_builder->CreateICmpEQ(gen->getRegister("CTR"), 0, "ctrnz");
         should_branch = gen->m_builder->CreateAnd(isCTRz, gen->m_builder->CreateNot(bi), "shBr");
     }
     // 001zy
@@ -59,16 +59,16 @@ llvm::Value* getBOOperation(IRGenerator* gen, Instruction instr, llvm::Value* bi
     if (!isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) &&
         isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
     {
-        gen->m_builder->CreateSub(gen->xenonCPU->CTR, llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_builder->getContext()), 1));
-        llvm::Value* isCTRnz = gen->m_builder->CreateICmpNE(gen->xenonCPU->CTR, 0, "ctrnz");
+        gen->m_builder->CreateSub(gen->getRegister("CTR"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_builder->getContext()), 1));
+        llvm::Value* isCTRnz = gen->m_builder->CreateICmpNE(gen->getRegister("CTR"), 0, "ctrnz");
         should_branch = gen->m_builder->CreateAnd(isCTRnz, bi, "shBr");
     }
     // 0101y
     if (isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) &&
         isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
     {
-        gen->m_builder->CreateSub(gen->xenonCPU->CTR, llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_builder->getContext()), 1));
-        llvm::Value* isCTRnz = gen->m_builder->CreateICmpEQ(gen->xenonCPU->CTR, 0, "ctrnz");
+        gen->m_builder->CreateSub(gen->getRegister("CTR"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_builder->getContext()), 1));
+        llvm::Value* isCTRnz = gen->m_builder->CreateICmpEQ(gen->getRegister("CTR"), 0, "ctrnz");
         should_branch = gen->m_builder->CreateAnd(isCTRnz, bi, "shBr");
     }
     // 0b011zy (Branch if condition is TRUE)
@@ -79,8 +79,8 @@ llvm::Value* getBOOperation(IRGenerator* gen, Instruction instr, llvm::Value* bi
     // 0b1z00y
     if (!isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) && isBoBit(instr.ops[0], 4))
     {
-        gen->m_builder->CreateSub(gen->xenonCPU->CTR, llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_builder->getContext()), 1));
-        llvm::Value* isCTRnz = gen->m_builder->CreateICmpNE(gen->xenonCPU->CTR, 0, "ctrnz");
+        gen->m_builder->CreateSub(gen->getRegister("CTR"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_builder->getContext()), 1));
+        llvm::Value* isCTRnz = gen->m_builder->CreateICmpNE(gen->getRegister("CTR"), 0, "ctrnz");
         should_branch = gen->m_builder->CreateAnd(isCTRnz, llvm::ConstantInt::get(llvm::Type::getInt1Ty(gen->m_builder->getContext()), 1), "shBr");
     }
 
@@ -98,13 +98,13 @@ void setCRField(IRGenerator* gen, uint32_t index, llvm::Value* field)
 
     // clear the already stored bits
     llvm::Value* invertedMask = gen->m_builder->CreateNot(shiftedMask, "invertedMask");
-    llvm::Value* clearedCR = gen->m_builder->CreateAnd(gen->xenonCPU->CR, invertedMask, "clearedCR");
+    llvm::Value* clearedCR = gen->m_builder->CreateAnd(gen->getRegister("CR"), invertedMask, "clearedCR");
 
     // update bits
     llvm::Value* shiftedFieldValue = gen->m_builder->CreateShl(field, shiftAmount, "shiftedFieldValue");
     llvm::Value* updatedCR = gen->m_builder->CreateOr(clearedCR, shiftedFieldValue, "updatedCR");
 
-    gen->m_builder->CreateStore(updatedCR, gen->xenonCPU->CR);
+    gen->m_builder->CreateStore(updatedCR, gen->getRegister("CR"));
 }
 
 llvm::Value* extractCRBit(IRGenerator* gen, uint32_t BI) {
@@ -116,13 +116,43 @@ llvm::Value* extractCRBit(IRGenerator* gen, uint32_t BI) {
     llvm::Value* shiftedMask = gen->m_builder->CreateShl(mask, shiftAmount, "shm");
 
     // mask the bit
-    llvm::Value* isolatedBit = gen->m_builder->CreateAnd(gen->xenonCPU->CR, shiftedMask, "ib");
+    llvm::Value* isolatedBit = gen->m_builder->CreateAnd(gen->getRegister("CR"), shiftedMask, "ib");
     llvm::Value* bit = gen->m_builder->CreateLShr(isolatedBit, shiftAmount, "bi");
 
     return bit;
 }
 
-void updateCR0(IRGenerator* gen, llvm::Value* result)
+llvm::Value* updateCRWithValue(IRGenerator* gen, llvm::Value* result, llvm::Value* value)
+{
+    llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), 0);
+
+    // lt
+    llvm::Value* isLT = gen->m_builder->CreateICmpSLT(value, result, "isLT");
+    llvm::Value* ltBit = gen->m_builder->CreateZExt(isLT, llvm::Type::getInt32Ty(gen->m_module->getContext()), "ltBit");
+
+    // gt
+    llvm::Value* isGT = gen->m_builder->CreateICmpSGT(value, result, "isGT");
+    llvm::Value* gtBit = gen->m_builder->CreateZExt(isGT, llvm::Type::getInt32Ty(gen->m_module->getContext()), "gtBit");
+
+    // eq 
+    llvm::Value* isEQ = gen->m_builder->CreateICmpEQ(value, result, "isEQ");
+    llvm::Value* eqBit = gen->m_builder->CreateZExt(isEQ, llvm::Type::getInt32Ty(gen->m_module->getContext()), "eqBit");
+
+    // so // TODO
+    //llvm::Value* soBit = xerSO;
+
+    // build cr0 field 
+    llvm::Value* crField = gen->m_builder->CreateOr(
+        gen->m_builder->CreateOr(ltBit, gen->m_builder->CreateShl(gtBit, 1)),
+        gen->m_builder->CreateOr(gen->m_builder->CreateShl(eqBit, 2),
+            gen->m_builder->CreateShl(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), 0), 3)), // so BIT TODO
+        "crField"
+    );
+
+    return crField;
+}
+
+llvm::Value* updateCRWithZero(IRGenerator* gen, llvm::Value* result)
 {
     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), 0);
 
@@ -142,15 +172,14 @@ void updateCR0(IRGenerator* gen, llvm::Value* result)
     //llvm::Value* soBit = xerSO;
 
     // build cr0 field 
-    llvm::Value* cr0Field = gen->m_builder->CreateOr(
+    llvm::Value* crField = gen->m_builder->CreateOr(
         gen->m_builder->CreateOr(ltBit, gen->m_builder->CreateShl(gtBit, 1)),
         gen->m_builder->CreateOr(gen->m_builder->CreateShl(eqBit, 2), 
         gen->m_builder->CreateShl(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), 0), 3)), // so BIT TODO
         "cr0Field"
     );
 
-    // update CR0 in CR
-    setCRField(gen, 0, cr0Field);
+    return crField;
 }
 
 inline void bl_e(Instruction instr, IRGenerator* gen)
@@ -164,7 +193,7 @@ inline void bl_e(Instruction instr, IRGenerator* gen)
     // in LR, so when LR is used to return, it branch to the basic block so the next instruction
     // i think there is a better way to handle this but.. it should work fine for now :}
     llvm::BasicBlock* lr_BB = gen->getCreateBBinMap(instr.address + 4);
-    gen->m_builder->CreateStore(lr_BB, gen->xenonCPU->LR); // Store in Link Register (LR)
+    gen->m_builder->CreateStore(lr_BB, gen->getRegister("LR")); // Store in Link Register (LR)
 
     // emit branch in ir
     gen->m_builder->CreateBr(BB);
@@ -183,9 +212,9 @@ inline void stfd_e(Instruction instr, IRGenerator* gen)
     llvm::Value* extendedDisplacement = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), instr.ops[1]),
         llvm::Type::getInt64Ty(gen->m_module->getContext()), "ext_D");
 
-    llvm::Value* ea = gen->m_builder->CreateAdd(gen->xenonCPU->getRR(instr.ops[2]), extendedDisplacement, "ea");
+    llvm::Value* ea = gen->m_builder->CreateAdd(gen->getRegister("RR", instr.ops[2]), extendedDisplacement, "ea");
 
-    gen->m_builder->CreateStore(gen->xenonCPU->getFR(instr.ops[0]), ea);
+    gen->m_builder->CreateStore(gen->getRegister("FR", instr.ops[0]), ea);
 }
 
 inline void stwu_e(Instruction instr, IRGenerator* gen)
@@ -193,11 +222,11 @@ inline void stwu_e(Instruction instr, IRGenerator* gen)
     llvm::Value* extendedDisplacement = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), instr.ops[1]),
         llvm::Type::getInt64Ty(gen->m_module->getContext()), "ext_D");
 
-    llvm::Value* ea = gen->m_builder->CreateAdd(gen->xenonCPU->getRR(instr.ops[2]), extendedDisplacement, "ea");
-    llvm::Value* low32Bits = gen->m_builder->CreateTrunc(gen->xenonCPU->getRR(instr.ops[0]), llvm::Type::getInt32Ty(gen->m_module->getContext()), "low32Bits");
+    llvm::Value* ea = gen->m_builder->CreateAdd(gen->getRegister("RR", instr.ops[2]), extendedDisplacement, "ea");
+    llvm::Value* low32Bits = gen->m_builder->CreateTrunc(gen->getRegister("RR", instr.ops[0]), llvm::Type::getInt32Ty(gen->m_module->getContext()), "low32Bits");
     
     gen->m_builder->CreateStore(low32Bits, ea);
-    gen->m_builder->CreateStore(ea, gen->xenonCPU->getRR(instr.ops[2]));
+    gen->m_builder->CreateStore(ea, gen->getRegister("RR", instr.ops[2]));
 }
 
 inline void addi_e(Instruction instr, IRGenerator* gen)
@@ -206,15 +235,15 @@ inline void addi_e(Instruction instr, IRGenerator* gen)
     {
         llvm::Value* im = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), instr.ops[1]),
             llvm::Type::getInt64Ty(gen->m_module->getContext()), "im");
-        gen->m_builder->CreateStore(im, gen->xenonCPU->getRR(instr.ops[0]));
+        gen->m_builder->CreateStore(im, gen->getRegister("RR", instr.ops[0]));
         return;
     }
 
     llvm::Value* im = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), instr.ops[2]),
         llvm::Type::getInt64Ty(gen->m_module->getContext()), "im");
     // Add immediate
-    llvm::Value* val = gen->m_builder->CreateAdd(gen->xenonCPU->getRR(instr.ops[1]), im, "val");
-    gen->m_builder->CreateStore(val, gen->xenonCPU->getRR(instr.ops[0]));
+    llvm::Value* val = gen->m_builder->CreateAdd(gen->getRegister("RR", instr.ops[1]), im, "val");
+    gen->m_builder->CreateStore(val, gen->getRegister("RR", instr.ops[0]));
 }
 
 inline void addis_e(Instruction instr, IRGenerator* gen)
@@ -224,7 +253,7 @@ inline void addis_e(Instruction instr, IRGenerator* gen)
         uint32_t shifted = instr.ops[1] << 16;
         llvm::Value* im = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), shifted),
             llvm::Type::getInt64Ty(gen->m_module->getContext()), "im");
-        gen->m_builder->CreateStore(im, gen->xenonCPU->getRR(instr.ops[0]));
+        gen->m_builder->CreateStore(im, gen->getRegister("RR", instr.ops[0]));
         return;
     }
 
@@ -232,24 +261,23 @@ inline void addis_e(Instruction instr, IRGenerator* gen)
     llvm::Value* im = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), shifted),
         llvm::Type::getInt64Ty(gen->m_module->getContext()), "im");
     // Add immediate
-    llvm::Value* val = gen->m_builder->CreateAdd(gen->xenonCPU->getRR(instr.ops[1]), im, "val");
-    gen->m_builder->CreateStore(val, gen->xenonCPU->getRR(instr.ops[0]));
+    llvm::Value* val = gen->m_builder->CreateAdd(gen->getRegister("RR", instr.ops[1]), im, "val");
+    gen->m_builder->CreateStore(val, gen->getRegister("RR", instr.ops[0]));
 }
 
 inline void orx_e(Instruction instr, IRGenerator* gen)
 {
-    llvm::Value* result = gen->m_builder->CreateOr(gen->xenonCPU->getRR(instr.ops[1]), 
-        gen->xenonCPU->getRR(instr.ops[2]), "or_result");
-    gen->m_builder->CreateStore(result, gen->xenonCPU->getRR(instr.ops[0]));
+    llvm::Value* result = gen->m_builder->CreateOr(gen->getRegister("RR", instr.ops[1]),
+        gen->getRegister("RR", instr.ops[2]), "or_result");
+    gen->m_builder->CreateStore(result, gen->getRegister("RR", instr.ops[0]));
 
     // update condition register if or. (orRC)
     if (strcmp(instr.opcName.c_str(), "orRC") == 0) 
     {
-        updateCR0(gen, result);
+        // update CR0 in CR
+        setCRField(gen, 0, updateCRWithZero(gen, result));
     }
 }
-
-
 
 inline void bcx_e(Instruction instr, IRGenerator* gen)
 {
@@ -264,4 +292,24 @@ inline void bcx_e(Instruction instr, IRGenerator* gen)
     llvm::BasicBlock* b_false = gen->getCreateBBinMap(instr.address + 4);
 
     gen->m_builder->CreateCondBr(should_branch, b_true, b_false);
+}
+
+inline void cmpli_e(Instruction instr, IRGenerator* gen)
+{
+    
+    llvm::Value* a;
+    if(instr.ops[1] = 0)
+    {
+        llvm::Value* low32Bits = gen->m_builder->CreateTrunc(gen->getRegister("RR", instr.ops[2]), llvm::Type::getInt32Ty(gen->m_module->getContext()), "low32");
+        a = gen->m_builder->CreateZExt(low32Bits, gen->m_builder->getInt64Ty(), "ext");
+    } 
+    else
+    {
+        a = gen->getRegister("RR", instr.ops[2]);
+    }
+
+    llvm::Value* imm = gen->m_builder->CreateZExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), 
+        instr.ops[3]), gen->m_builder->getInt64Ty(), "extendedA");
+    
+    setCRField(gen, instr.ops[0], updateCRWithValue(gen, imm, a));
 }

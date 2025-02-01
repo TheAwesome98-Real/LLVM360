@@ -7,3 +7,9 @@
 /x64
 *.xex
 /out
+/runtime/Runtime/.vs/Runtime
+/runtime/Runtime/Runtime/x64/Debug
+/runtime/Runtime/x64/Debug
+*.exe
+*.dll
+/runtime/Runtime/.vs

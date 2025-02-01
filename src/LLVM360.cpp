@@ -56,8 +56,9 @@ int main() {
     uint32_t instCount = 0;
     auto start = std::chrono::high_resolution_clock::now();
 
-    uint32_t addrOverrider = 0x82060150;
-    //endAddress = addrOverrider;
+    //uint32_t addrOverrider = 0x82060150;
+    uint32_t addrOverrider = 0x82060004;
+    endAddress = addrOverrider;
     while (address < endAddress) 
     {
       Instruction instruction;
@@ -101,6 +102,8 @@ int main() {
     }
     // Stop the timer
     auto end = std::chrono::high_resolution_clock::now();
+
+    irGen->writeIRtoFile();
 
     // Calculate the duration
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);

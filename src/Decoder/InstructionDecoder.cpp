@@ -438,8 +438,8 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t *stride, Instructio
   case 10: {
     uint32_t l = ibf->GetAt(10, 1);
     if (!l)
-      INST("cmplwi", b6_3, b11_5, b16_16)
-    INST("cmpldi", b6_3, b11_5, b16_16)
+      INST("cmplwi", b6_3, 0, b11_5, b16_16)
+    INST("cmpldi", b6_3, 1, b11_5, b16_16)
   }
 
   // cmpi (cmpdi, cmpwi)
