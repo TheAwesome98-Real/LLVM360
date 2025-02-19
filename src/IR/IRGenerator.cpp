@@ -11,6 +11,13 @@ IRGenerator::IRGenerator(XexImage *xex, llvm::Module* mod, llvm::IRBuilder<llvm:
   m_xexImage = xex;
 }
 
+
+
+void IRGenerator::embedDataSections()
+{
+
+}
+
 void IRGenerator::CxtSwapFunc()
 {
     tlsVariable = new llvm::GlobalVariable(
@@ -25,6 +32,7 @@ void IRGenerator::CxtSwapFunc()
         0
     );
 
+    
     // getXCtxAddress func
     llvm::Type* retType = tlsVariable->getType();
 
@@ -47,15 +55,28 @@ void IRGenerator::CxtSwapFunc()
 }
 
 
+
 void IRGenerator::InitLLVM() {
-
-
+  
     CxtSwapFunc();
+
+    
+   
+
 	// main function / entry point
     llvm::FunctionType* mainType = llvm::FunctionType::get(m_builder->getInt32Ty(), false);
     mainFn = llvm::Function::Create(mainType, llvm::Function::ExternalLinkage, "main", m_module);
     llvm::BasicBlock* entry = llvm::BasicBlock::Create(m_module->getContext(), "Entry", mainFn);
     m_builder->SetInsertPoint(entry);
+
+    xCtx = m_builder->CreateLoad(
+        tlsVariable->getType()->getPointerTo(),
+        tlsVariable,
+        "xCtx"
+    );
+
+    FR = m_builder->CreateStructGEP(XenonStateType, xCtx, 6, "reg.FR");
+    RR = m_builder->CreateStructGEP(XenonStateType, xCtx, 5, "reg.RR");
 }
 
 void IRGenerator::Initialize() {
@@ -86,19 +107,9 @@ bool IRGenerator::EmitInstruction(Instruction instr) {
     instructionMap = 
     {
          {"mfspr", mfspr_e },
-         {"bl", bl_e },
-         {"stfd", stfd_e },
+         {"stw", stw_e },
          {"stwu", stwu_e },
-         {"addi", addi_e },
-         {"li", addi_e }, // load immediate is just an addi but rA is 0
-         {"lis", addis_e }, // same thing
-         {"addis", addis_e },
-         {"or", orx_e },
-         {"orRC", orx_e },
-         {"bc", bcx_e },
-         {"cmpli", cmpli_e },
-         {"cmpldi", cmpli_e },
-         {"cmplwi", cmpli_e },
+         {"li", addi_e }, // it's a simplified mnemonic
     };
 
     // check if at address a bb is present if true then set the insertPoint to it
@@ -139,16 +150,28 @@ llvm::BasicBlock* IRGenerator::createBasicBlock(llvm::Function* func, uint32_t a
 llvm::BasicBlock* IRGenerator::getCreateBBinMap(uint32_t address)
 {
     if (isBBinMap(address)){
-        return bb_map.at(address);
+        return codeBlocks_map.at(address)->bb_Block;
     }
-    llvm::BasicBlock* bb = createBasicBlock(mainFn, address);
-    bb_map.try_emplace(address, bb);
-    return bb;
+    CodeBlock* block;
+    block->isFunc = false;
+    block->bb_Block = createBasicBlock(mainFn, address);
+    codeBlocks_map.try_emplace(address, block);
+    return block->bb_Block;
 }
 
 bool IRGenerator::isBBinMap(uint32_t address)
 {
-    return bb_map.find(address) != bb_map.end();
+    return codeBlocks_map.find(address) != codeBlocks_map.end();
+}
+
+
+//
+//  Control flow pass
+//
+
+bool IRGenerator::pass_controlFlow()
+{
+    return true;
 }
 
 
@@ -190,11 +213,6 @@ void IRGenerator::writeIRtoFile()
 
 llvm::Value* IRGenerator::getRegister(const std::string& regName, int index1, int index2) 
 {
-    llvm::Value* xCtx = m_builder->CreateLoad(
-        tlsVariable->getType()->getPointerTo(),
-        tlsVariable,
-        "xCtx"
-    );
 
     if (regName == "LR" || regName == "CTR" || regName == "MSR" || regName == "XER") 
     {
@@ -223,7 +241,7 @@ llvm::Value* IRGenerator::getRegister(const std::string& regName, int index1, in
         assert(index1 != -1 && "Index for FR must be provided.");
         return m_builder->CreateGEP(
             llvm::Type::getInt64Ty(m_builder->getContext()),
-            m_builder->CreateStructGEP(XenonStateType, xCtx, 6, "reg.FR"),
+            FR,
             llvm::ConstantInt::get(m_builder->getInt32Ty(), index1),
             "reg.FR[" + std::to_string(index1) + "]");
     }

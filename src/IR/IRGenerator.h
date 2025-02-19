@@ -15,6 +15,15 @@
 #include <Windows.h>
 #include <map>
 
+struct CodeBlock
+{
+    llvm::BasicBlock* bb_Block;
+    bool isFunc;
+};
+
+
+
+
 class IRGenerator {
 public:
   // llvm references
@@ -36,7 +45,8 @@ public:
   bool isBBinMap(uint32_t address);
   void writeIRtoFile();
   void CxtSwapFunc();
-
+  bool pass_controlFlow();
+  void embedDataSections();
   // TESTT
     // This is just for testing, to force the compiler to link the dll
     // 
@@ -54,6 +64,9 @@ public:
   );
   ////
   
+  llvm::Value* xCtx;
+  llvm::Value* FR;
+  llvm::Value* RR;
   
   llvm::GlobalVariable* tlsVariable;
   llvm::StructType* XenonStateType = llvm::StructType::create(
@@ -69,5 +82,6 @@ public:
       }, "xenonState");
 
   llvm::Function* mainFn;
-  std::unordered_map<uint32_t, llvm::BasicBlock*> bb_map;
+  std::unordered_map<uint32_t, CodeBlock*> codeBlocks_map;
+  std::unordered_map<uint32_t, Instruction> instrsList;
 };

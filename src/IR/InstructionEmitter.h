@@ -1,13 +1,11 @@
 #pragma once
 #include "IRGenerator.h"
 
-inline void mfspr_e(Instruction instr, IRGenerator *gen) 
-{
-    auto lrValue = gen->m_builder->CreateLoad(gen->m_builder->getInt64Ty(), gen->getSPR(instr.ops[1]), "load_spr");
-    gen->m_builder->CreateStore(lrValue, gen->getRegister("RR", instr.ops[0]));
-}
+//
+// Helpers
+//
 
-uint32_t signExtend(uint32_t value, int size) 
+inline uint32_t signExtend(uint32_t value, int size)
 {
     if (value & (1 << (size - 1))) {
         return value | (~0 << size); 
@@ -15,13 +13,13 @@ uint32_t signExtend(uint32_t value, int size)
     return value; 
 }
 
-bool isBoBit(uint32_t value, uint32_t idx) {
+inline bool isBoBit(uint32_t value, uint32_t idx) {
     return (value >> idx) & 0b1;
 }
 
-llvm::Value* getBOOperation(IRGenerator* gen, Instruction instr, llvm::Value* bi)
+inline llvm::Value* getBOOperation(IRGenerator* gen, Instruction instr, llvm::Value* bi)
 {
-    llvm::Value* should_branch;
+    llvm::Value* should_branch{};
 
     /*0000y Decrement the CTR, then branch if the decremented CTR[M–63] is not 0 and the condition is FALSE.
       0001y Decrement the CTR, then branch if the decremented CTR[M–63] = 0 and the condition is FALSE.
@@ -87,7 +85,7 @@ llvm::Value* getBOOperation(IRGenerator* gen, Instruction instr, llvm::Value* bi
     return should_branch;
 }
 
-void setCRField(IRGenerator* gen, uint32_t index, llvm::Value* field)
+inline void setCRField(IRGenerator* gen, uint32_t index, llvm::Value* field)
 {
     llvm::LLVMContext& context = gen->m_module->getContext();
 
@@ -107,7 +105,7 @@ void setCRField(IRGenerator* gen, uint32_t index, llvm::Value* field)
     gen->m_builder->CreateStore(updatedCR, gen->getRegister("CR"));
 }
 
-llvm::Value* extractCRBit(IRGenerator* gen, uint32_t BI) {
+inline llvm::Value* extractCRBit(IRGenerator* gen, uint32_t BI) {
     llvm::LLVMContext& context = gen->m_builder->getContext();
 
     // create mask at bit pos
@@ -122,7 +120,7 @@ llvm::Value* extractCRBit(IRGenerator* gen, uint32_t BI) {
     return bit;
 }
 
-llvm::Value* updateCRWithValue(IRGenerator* gen, llvm::Value* result, llvm::Value* value)
+inline llvm::Value* updateCRWithValue(IRGenerator* gen, llvm::Value* result, llvm::Value* value)
 {
     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), 0);
 
@@ -152,7 +150,7 @@ llvm::Value* updateCRWithValue(IRGenerator* gen, llvm::Value* result, llvm::Valu
     return crField;
 }
 
-llvm::Value* updateCRWithZero(IRGenerator* gen, llvm::Value* result)
+inline llvm::Value* updateCRWithZero(IRGenerator* gen, llvm::Value* result)
 {
     llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), 0);
 
@@ -182,6 +180,67 @@ llvm::Value* updateCRWithZero(IRGenerator* gen, llvm::Value* result)
     return crField;
 }
 
+//
+// ---- Dynamic Store and Load ----
+// Those are helper functions to emit ir code that checks if the
+// resolved address is in bounds of .rdata or .data
+// but if the register used is R1 (stack pointer) don't add the checks
+// further optimizations can be added, maybe check if R3 is used (usually stores the return value)
+//
+
+inline llvm::Value* dynamicStore(IRGenerator* gen, uint32_t displ, uint32_t gpr)
+{
+    llvm::Value* extendedDisplacement = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), llvm::APInt(16, displ, true)),
+        llvm::Type::getInt64Ty(gen->m_module->getContext()), "ext_D");
+
+    if (gpr == 1) // if gpr used is R1 (stack pointer)
+    {
+        llvm::Value* regPtr = gen->getRegister("RR", gpr); 
+        llvm::Value* regValue = gen->m_builder->CreateLoad(
+            llvm::Type::getInt64Ty(gen->m_module->getContext()), regPtr, "regValue"); 
+
+        llvm::Value* ea = gen->m_builder->CreateAdd(regValue, extendedDisplacement, "ea");
+        return ea;
+    }
+
+    return nullptr;
+}
+
+inline llvm::Value* dynamicLoad(IRGenerator* gen)
+{
+    return nullptr;
+}
+
+inline llvm::Value* getEA(IRGenerator* gen, uint32_t displ, uint32_t gpr)
+{
+    llvm::Value* extendedDisplacement = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), llvm::APInt(16, displ, true)),
+        llvm::Type::getInt64Ty(gen->m_module->getContext()), "ext_D");
+    llvm::Value* regValue = gen->m_builder->CreateLoad(llvm::Type::getInt64Ty(gen->m_module->getContext()),
+        gen->getRegister("RR", gpr),
+        "regValue");
+    llvm::Value* ea = gen->m_builder->CreateAdd(regValue, extendedDisplacement, "ea");
+
+    llvm::Value* addressPtr = gen->m_builder->CreateIntToPtr(ea,
+        llvm::Type::getDoubleTy(gen->m_module->getContext())->getPointerTo(),
+        "addressPtr"
+    );
+
+	return addressPtr;
+}
+
+
+//
+// INSTRUCTIONS Emitters
+//
+
+inline void mfspr_e(Instruction instr, IRGenerator* gen)
+{
+    auto lrValue = gen->m_builder->CreateLoad(gen->m_builder->getInt64Ty(), gen->getSPR(instr.ops[1]), "load_spr");
+    gen->m_builder->CreateStore(lrValue, gen->getRegister("RR", instr.ops[0]));
+}
+
+
+
 inline void bl_e(Instruction instr, IRGenerator* gen)
 {
     uint32_t target = instr.address + signExtend(instr.ops[0], 24);
@@ -209,24 +268,30 @@ inline void bl_e(Instruction instr, IRGenerator* gen)
 
 inline void stfd_e(Instruction instr, IRGenerator* gen)
 {
-    llvm::Value* extendedDisplacement = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), instr.ops[1]),
-        llvm::Type::getInt64Ty(gen->m_module->getContext()), "ext_D");
-
-    llvm::Value* ea = gen->m_builder->CreateAdd(gen->getRegister("RR", instr.ops[2]), extendedDisplacement, "ea");
-
-    gen->m_builder->CreateStore(gen->getRegister("FR", instr.ops[0]), ea);
+    auto frValue = gen->m_builder->CreateLoad(gen->m_builder->getDoubleTy(), gen->getRegister("FR", instr.ops[0]), "load_fr");
+    gen->m_builder->CreateStore(frValue, getEA(gen, instr.ops[1], instr.ops[2])); // address needs to be a pointer (pointer to an address in memory)
 }
 
+inline void stw_e(Instruction instr, IRGenerator* gen)
+{
+	// truncate the value to 32 bits
+    auto rrValue = gen->m_builder->CreateLoad(gen->m_builder->getInt64Ty(), gen->getRegister("RR", instr.ops[0]), "load_rr");
+    gen->m_builder->CreateStore(gen->m_builder->CreateTrunc(rrValue, llvm::Type::getInt32Ty(gen->m_module->getContext()), "low32Bits"), 
+                                                            getEA(gen, instr.ops[1], instr.ops[2]));
+}
+
+// store word with update, update means that the address register is updated with the new address
+// so rA = rA + displacement after the store
 inline void stwu_e(Instruction instr, IRGenerator* gen)
 {
-    llvm::Value* extendedDisplacement = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), instr.ops[1]),
-        llvm::Type::getInt64Ty(gen->m_module->getContext()), "ext_D");
+	llvm::Value* eaVal = getEA(gen, instr.ops[1], instr.ops[2]);
 
-    llvm::Value* ea = gen->m_builder->CreateAdd(gen->getRegister("RR", instr.ops[2]), extendedDisplacement, "ea");
-    llvm::Value* low32Bits = gen->m_builder->CreateTrunc(gen->getRegister("RR", instr.ops[0]), llvm::Type::getInt32Ty(gen->m_module->getContext()), "low32Bits");
+    auto rrValue = gen->m_builder->CreateLoad(gen->m_builder->getInt64Ty(), gen->getRegister("RR", instr.ops[0]), "load_rr");
+    gen->m_builder->CreateStore(gen->m_builder->CreateTrunc(rrValue, llvm::Type::getInt32Ty(gen->m_module->getContext()), "low32Bits"),
+        eaVal);
     
-    gen->m_builder->CreateStore(low32Bits, ea);
-    gen->m_builder->CreateStore(ea, gen->getRegister("RR", instr.ops[2]));
+	// update rA
+	gen->m_builder->CreateStore(eaVal, gen->getRegister("RR", instr.ops[2]));
 }
 
 inline void addi_e(Instruction instr, IRGenerator* gen)
