@@ -117,6 +117,9 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"bclr", bclr_e },
          {"bcctr", bcctr_e },
          {"lhz", lhz_e },
+         {"cmpw", cmpw_e},
+         {"bc", bcx_e},
+         {"add", add_e},
     };
 
 

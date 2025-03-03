@@ -18,7 +18,7 @@
 bool printINST = true;
 bool printFile = false;  // Set this flag to true or false based on your preference
 bool genLLVMIR = true;
-bool isUnitTesting = false;
+bool isUnitTesting = true;
 bool doOverride = false; // if it should override the endAddress to debug
 uint32_t overAddr = 0x82060150;
 
@@ -62,11 +62,17 @@ void saveSection(const char* path, uint32_t idx)
 
 void unitTest(IRGenerator* gen)
 {
-    //unit_mfspr(gen);
+	IRFunc* testFunc = gen->getCreateFuncInMap(loadedXex->GetEntryAddress());
+    testFunc->genBody();
+    gen->m_builder->SetInsertPoint(testFunc->codeBlocks.at(testFunc->start_address)->bb_Block);
+    //unit_mfspr(testFunc, gen);
     //unit_stfd(gen);
     //unit_stwu(gen);
     //unit_lwz(gen);
 	//unit_li(gen);
+	unit_cmpw(testFunc, gen);
+
+	gen->m_builder->CreateRetVoid();
     //
     // DUMP
     //
@@ -97,6 +103,7 @@ bool pass_Flow()
         auto address = sectionBaseAddress;
 
         // create the function for the first function
+        
 		IRFunc* first = g_irGen->getCreateFuncInMap(sectionBaseAddress);
         IRFunc* prevFunc = nullptr;
 		IRFunc* currentFunc = first;
@@ -223,6 +230,13 @@ bool pass_Decode()
 
 bool pass_Emit()
 {
+
+    if (isUnitTesting)
+	{
+		unitTest(g_irGen);
+		return true;
+	}
+
     bool ret = true;
 
     for (size_t i = 0; i < loadedXex->GetNumSections(); i++)

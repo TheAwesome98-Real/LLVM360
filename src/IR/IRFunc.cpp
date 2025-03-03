@@ -8,21 +8,97 @@
 // Code Blocks
 //
 
+
+
+inline uint32_t signExtend(uint32_t value, int size)
+{
+    if (value & (1 << (size - 1))) {
+        return value | (~0 << size);
+    }
+    return value;
+}
+
 bool IRFunc::EmitFunction()
 {
     bool result;
     m_irGen->m_builder->SetInsertPoint(getCreateBBinMap(start_address));
 
     uint32_t idx = this->start_address;
+    
+    // discover start basic blocks
     while (idx <= this->end_address)
     {
-
-        if (!m_irGen->EmitInstruction(m_irGen->instrsList.at(idx), this)) 
+		Instruction instr = m_irGen->instrsList.at(idx);
+		if (strcmp(instr.opcName.c_str(), "b") == 0)
+		{
+            uint32_t target = idx + signExtend(instr.ops[0], 24);
+            llvm::BasicBlock* target_BB = this->getCreateBBinMap(target);
+		}
+        if (strcmp(instr.opcName.c_str(), "bc") == 0)
         {
-            __debugbreak();
-            return 1;
+            this->getCreateBBinMap(instr.address + (instr.ops[2] << 2));
+            this->getCreateBBinMap(instr.address + 4);
         }
+
         idx += 4;
+    }
+
+	CodeBlock* currentBlock = codeBlocks.at(start_address);
+    idx = this->start_address;
+	// discover end basic blocks
+    while (idx <= this->end_address)
+    {
+        Instruction instr = m_irGen->instrsList.at(idx);
+		if (isBBinMap(idx + 4))
+		{
+			currentBlock->end = idx;
+			currentBlock = codeBlocks.at(idx + 4);
+		}
+		if (strcmp(instr.opcName.c_str(), "bclr") == 0)
+		{
+			currentBlock->end = idx;
+		}
+
+        idx += 4;
+    }
+
+    // can be optimized?
+    // TODO
+
+    // emit
+    idx = this->start_address;
+    while (idx <= this->end_address)
+    {
+        
+
+		if (isBBinMap(idx))
+		{
+			m_irGen->m_builder->SetInsertPoint(codeBlocks.at(idx)->bb_Block);
+
+            CodeBlock* block = codeBlocks.at(idx);
+
+
+            uint32_t blockIdx = block->address;
+            while (blockIdx <= block->end)
+            {
+                Instruction instr = m_irGen->instrsList.at(blockIdx);
+
+                if (!m_irGen->EmitInstruction(m_irGen->instrsList.at(blockIdx), this))
+                {
+                    __debugbreak();
+                    return 1;
+                }
+
+                if (blockIdx == block->end && strcmp(instr.opcName.c_str(), "bclr") != 0)
+                {
+                    m_irGen->m_builder->CreateBr(codeBlocks.at(block->end + 4)->bb_Block);
+                }
+                blockIdx += 4;
+                
+            }
+
+			idx = blockIdx;
+		}
     }
 
 

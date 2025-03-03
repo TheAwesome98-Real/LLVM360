@@ -7,6 +7,7 @@
 struct CodeBlock
 {
 	uint32_t address;
+    uint32_t end;
 	llvm::BasicBlock* bb_Block;
 };
 

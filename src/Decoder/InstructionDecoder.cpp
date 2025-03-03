@@ -115,6 +115,7 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t *stride, Instructio
     uint32_t b16_14 = ibf->GetAt(16, 14);
     uint32_t b16_5 = ibf->GetAt(16, 5);
     uint32_t b6_3 = ibf->GetAt(6, 3);
+    uint32_t b10_1 = ibf->GetAt(10, 1);
     uint32_t b21_5 = ibf->GetAt(21, 5);
     uint32_t b26_1 = ibf->GetAt(26, 1);
     uint32_t b21_1 = ibf->GetAt(21, 1);
@@ -596,8 +597,8 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t *stride, Instructio
         case 0: {
             uint32_t l = ibf->GetAt(10, 1);
             if (!l)
-                INST("cmpw", b6_3, b11_5, b16_5)
-                INST("cmpd", b6_3, b11_5, b16_5)
+                INST("cmpw", b6_3, b10_1, b11_5, b16_5)
+                INST("cmpd", b6_3, b10_1, b11_5, b16_5)
         }
 
               // mftb (move from time base register)
