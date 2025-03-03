@@ -17,7 +17,7 @@
 // Debug
 bool printINST = true;
 bool printFile = false;  // Set this flag to true or false based on your preference
-bool genLLVMIR = false;
+bool genLLVMIR = true;
 bool isUnitTesting = false;
 bool doOverride = false; // if it should override the endAddress to debug
 uint32_t overAddr = 0x82060150;
@@ -100,6 +100,7 @@ bool pass_Flow()
 		IRFunc* first = g_irGen->getCreateFuncInMap(sectionBaseAddress);
         IRFunc* prevFunc = nullptr;
 		IRFunc* currentFunc = first;
+		
 
         while (address < endAddress)
         {
@@ -109,7 +110,8 @@ bool pass_Flow()
 				printf("Found end of function bounds at with BLR: %08X\n", address);
 				currentFunc->end_address = address;
 				prevFunc = currentFunc;
-				currentFunc = g_irGen->getCreateFuncInMap(address + 4);
+                if(address + 4 != endAddress)
+				    currentFunc = g_irGen->getCreateFuncInMap(address + 4);
             }
 
             /*/ todo, more Heuristic because tail calls
@@ -222,7 +224,6 @@ bool pass_Decode()
 bool pass_Emit()
 {
     bool ret = true;
-    uint32_t addrOverrider = 0x82060150;
 
     for (size_t i = 0; i < loadedXex->GetNumSections(); i++)
     {
@@ -239,30 +240,15 @@ bool pass_Emit()
         auto endAddress = baseAddress + section->GetVirtualOffset() + section->GetVirtualSize();
         auto address = sectionBaseAddress;
 
-        if (doOverride) endAddress = overAddr;
-        while (address < endAddress)
+        
+        for (const auto& pair : g_irGen->m_function_map) 
         {
-            // print LLVM IR Output
+            IRFunc* func = pair.second;
             if (genLLVMIR)
             {
-                bool result;
-                if (isUnitTesting)
-                {
-                    unitTest(g_irGen);
-                    result = false;
-                }
-                else
-                {
-                    //result = g_irGen->EmitInstruction(g_irGen->instrsList.at(address));
-                }
-
-                if (!result) {
-                    __debugbreak();
-                    return 1;
-                }
+				g_irGen->initFuncBody(func);
+				ret = func->EmitFunction();
             }
-
-            address += 4;
         }
     }
 
@@ -324,12 +310,12 @@ int main()
         return -1;
     }
 
-    /*/ third recomp pass: Emit IR code
+    // third recomp pass: Emit IR code
     if (!pass_Emit())
     {
         printf("something went wrong - Pass: EMIT\n");
         return -1;
-    }*/
+    }
 
     // sections
     //saveSection("bin/Debug/rdata.bin", 0);
@@ -339,7 +325,7 @@ int main()
     auto end = std::chrono::high_resolution_clock::now();
 
     
-
+	g_irGen->writeIRtoFile();
     // Calculate the duration
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     printf("\n\n\nDecoding process took: %f seconds\n", duration.count() / 1000000.0);

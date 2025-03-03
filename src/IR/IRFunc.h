@@ -23,6 +23,8 @@ public:
     llvm::BasicBlock* createBasicBlock(uint32_t address);
     llvm::BasicBlock* getCreateBBinMap(uint32_t address);
     bool isBBinMap(uint32_t address);
+    llvm::Value* getRegister(const std::string& regName, int arrayIndex = -1, int index2 = -1);
+    llvm::Value* getSPR(uint32_t n);
 
     IRGenerator* m_irGen;
 };

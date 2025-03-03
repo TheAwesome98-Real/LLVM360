@@ -29,9 +29,6 @@ public:
   IRGenerator(XexImage *xex, llvm::Module* mod, llvm::IRBuilder<llvm::NoFolder>* builder);
   void Initialize();
   bool EmitInstruction(Instruction instr, IRFunc* func);
-
-  llvm::Value* getRegister(const std::string& regName, int arrayIndex = -1, int index2 = -1);
-  llvm::Value* getSPR(uint32_t n);
   void InitLLVM();
   void writeIRtoFile();
   void CxtSwapFunc();

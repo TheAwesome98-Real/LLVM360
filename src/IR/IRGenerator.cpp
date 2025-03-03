@@ -69,11 +69,17 @@ void IRGenerator::InitLLVM() {
     // add xex entry point function
 	IRFunc* xex_entry = getCreateFuncInMap(m_xexImage->GetEntryAddress());
 	initFuncBody(xex_entry);
-	//m_builder->CreateCall(xex_entry->m_irFunc, {});
+    m_builder->SetInsertPoint(entry);
+	m_builder->CreateCall(xex_entry->m_irFunc, { xCtx, llvm::ConstantInt::get(m_builder->getInt32Ty(), m_xexImage->GetEntryAddress())});
 
     
 	m_builder->SetInsertPoint(entry);
+    
+    m_builder->CreateCall(dllTestFunc);
+
 	m_builder->CreateRet(llvm::ConstantInt::get(m_builder->getInt32Ty(), 0));
+
+	
 }
 
 void IRGenerator::Initialize() {
@@ -135,7 +141,6 @@ void IRGenerator::writeIRtoFile()
 {
     
 
-    m_builder->CreateRet(llvm::ConstantInt::get(llvm::Type::getInt32Ty(m_module->getContext()), 0));
     printf("----IR DUMP----\n\n\n");
     llvm::raw_fd_ostream& out = llvm::outs();
     m_module->print(out, nullptr);
@@ -151,67 +156,7 @@ void IRGenerator::writeIRtoFile()
     OS.close();
 }
 
-//
-// LR   -> 0
-// CTR  -> 1
-// MSR  -> 2
-// XER  -> 3
-// CR   -> 4
-// RR   -> 5
-// FR   -> 6
-// VX   -> 7
-//
 
-llvm::Value* IRGenerator::getRegister(const std::string& regName, int index1, int index2) 
-{
-
-    if (regName == "LR" || regName == "CTR" || regName == "MSR" || regName == "XER") 
-    {
-        int fieldIndex = (regName == "LR") ? 0 :
-            (regName == "CTR") ? 1 :
-            (regName == "MSR") ? 2 : 3;
-
-     
-        return m_builder->CreateStructGEP(XenonStateType, xCtx, fieldIndex, "lr_ptr");
-    }
-    else if (regName == "CR") 
-    {
-        return m_builder->CreateStructGEP(XenonStateType, xCtx, 4, "reg.CR");
-    }
-    else if (regName == "RR") 
-    {
-        assert(index1 != -1 && "Index for RR must be provided.");
-        return m_builder->CreateGEP(
-            llvm::Type::getInt64Ty(m_builder->getContext()),
-            m_builder->CreateStructGEP(XenonStateType, xCtx, 5, "reg.RR"),
-            llvm::ConstantInt::get(m_builder->getInt32Ty(), index1),
-            "reg.RR[" + std::to_string(index1) + "]");
-    }
-    else if (regName == "FR") 
-    {  
-        assert(index1 != -1 && "Index for FR must be provided.");
-        return m_builder->CreateGEP(
-            llvm::Type::getInt64Ty(m_builder->getContext()),
-            m_builder->CreateStructGEP(XenonStateType, xCtx, 6, "reg.FR"),
-            llvm::ConstantInt::get(m_builder->getInt32Ty(), index1),
-            "reg.FR[" + std::to_string(index1) + "]");
-    }
-    else {
-        llvm::errs() << "Unknown register name: " << regName << "\n";
-        return nullptr;
-    }
-}
-
-llvm::Value* IRGenerator::getSPR(uint32_t n)
-{
-    uint32_t spr4 = (n & 0b1111100000) >> 5;
-    uint32_t spr9 = n & 0b0000011111;
-
-    if (spr4 == 1) return this->getRegister("XER");
-    if (spr4 == 8) return this->getRegister("LR");
-    if (spr4 == 9) return this->getRegister("CTR");
-    return NULL;
-}
 
 //
 // Func Helpers
