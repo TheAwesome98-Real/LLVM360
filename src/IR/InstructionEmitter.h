@@ -1,5 +1,7 @@
 #pragma once
 #include "IRGenerator.h"
+#include "IRFunc.h"
+
 
 //
 // Helpers
@@ -17,7 +19,7 @@ inline bool isBoBit(uint32_t value, uint32_t idx) {
     return (value >> idx) & 0b1;
 }
 
-inline llvm::Value* getBOOperation(IRGenerator* gen, Instruction instr, llvm::Value* bi)
+inline llvm::Value* getBOOperation(IRFunc* func, Instruction instr, llvm::Value* bi)
 {
     llvm::Value* should_branch{};
 
@@ -35,145 +37,145 @@ inline llvm::Value* getBOOperation(IRGenerator* gen, Instruction instr, llvm::Va
     if (!isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) &&
         !isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
     {
-        gen->m_builder->CreateSub(gen->getRegister("CTR"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_builder->getContext()), 1));
-        llvm::Value* isCTRnz = gen->m_builder->CreateICmpNE(gen->getRegister("CTR"), 0, "ctrnz");
-        should_branch = gen->m_builder->CreateAnd(isCTRnz, gen->m_builder->CreateNot(bi), "shBr");
+        func->m_irGen->m_builder->CreateSub(func->m_irGen->getRegister("CTR"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(func->m_irGen->m_builder->getContext()), 1));
+        llvm::Value* isCTRnz = func->m_irGen->m_builder->CreateICmpNE(func->m_irGen->getRegister("CTR"), 0, "ctrnz");
+        should_branch = func->m_irGen->m_builder->CreateAnd(isCTRnz, func->m_irGen->m_builder->CreateNot(bi), "shBr");
     }
     // 0001y
     if (isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) &&
         !isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
     {
-        gen->m_builder->CreateSub(gen->getRegister("CTR"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_builder->getContext()), 1));
-        llvm::Value* isCTRz = gen->m_builder->CreateICmpEQ(gen->getRegister("CTR"), 0, "ctrnz");
-        should_branch = gen->m_builder->CreateAnd(isCTRz, gen->m_builder->CreateNot(bi), "shBr");
+        func->m_irGen->m_builder->CreateSub(func->m_irGen->getRegister("CTR"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(func->m_irGen->m_builder->getContext()), 1));
+        llvm::Value* isCTRz = func->m_irGen->m_builder->CreateICmpEQ(func->m_irGen->getRegister("CTR"), 0, "ctrnz");
+        should_branch = func->m_irGen->m_builder->CreateAnd(isCTRz, func->m_irGen->m_builder->CreateNot(bi), "shBr");
     }
     // 001zy
     if (isBoBit(instr.ops[0], 2) &&
         !isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
     {
-        should_branch = gen->m_builder->CreateAnd(gen->m_builder->CreateNot(bi), llvm::ConstantInt::get(llvm::Type::getInt1Ty(gen->m_builder->getContext()), 1), "shBr");
+        should_branch = func->m_irGen->m_builder->CreateAnd(func->m_irGen->m_builder->CreateNot(bi), llvm::ConstantInt::get(llvm::Type::getInt1Ty(func->m_irGen->m_builder->getContext()), 1), "shBr");
     }
     // 0100y
     if (!isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) &&
         isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
     {
-        gen->m_builder->CreateSub(gen->getRegister("CTR"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_builder->getContext()), 1));
-        llvm::Value* isCTRnz = gen->m_builder->CreateICmpNE(gen->getRegister("CTR"), 0, "ctrnz");
-        should_branch = gen->m_builder->CreateAnd(isCTRnz, bi, "shBr");
+        func->m_irGen->m_builder->CreateSub(func->m_irGen->getRegister("CTR"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(func->m_irGen->m_builder->getContext()), 1));
+        llvm::Value* isCTRnz = func->m_irGen->m_builder->CreateICmpNE(func->m_irGen->getRegister("CTR"), 0, "ctrnz");
+        should_branch = func->m_irGen->m_builder->CreateAnd(isCTRnz, bi, "shBr");
     }
     // 0101y
     if (isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) &&
         isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
     {
-        gen->m_builder->CreateSub(gen->getRegister("CTR"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_builder->getContext()), 1));
-        llvm::Value* isCTRnz = gen->m_builder->CreateICmpEQ(gen->getRegister("CTR"), 0, "ctrnz");
-        should_branch = gen->m_builder->CreateAnd(isCTRnz, bi, "shBr");
+        func->m_irGen->m_builder->CreateSub(func->m_irGen->getRegister("CTR"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(func->m_irGen->m_builder->getContext()), 1));
+        llvm::Value* isCTRnz = func->m_irGen->m_builder->CreateICmpEQ(func->m_irGen->getRegister("CTR"), 0, "ctrnz");
+        should_branch = func->m_irGen->m_builder->CreateAnd(isCTRnz, bi, "shBr");
     }
     // 0b011zy (Branch if condition is TRUE)
     if (isBoBit(instr.ops[0], 2) && isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
     {
-        should_branch = gen->m_builder->CreateAnd(bi, llvm::ConstantInt::get(llvm::Type::getInt1Ty(gen->m_builder->getContext()), 1), "shBr");
+        should_branch = func->m_irGen->m_builder->CreateAnd(bi, llvm::ConstantInt::get(llvm::Type::getInt1Ty(func->m_irGen->m_builder->getContext()), 1), "shBr");
     }
     // 0b1z00y
     if (!isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) && isBoBit(instr.ops[0], 4))
     {
-        gen->m_builder->CreateSub(gen->getRegister("CTR"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_builder->getContext()), 1));
-        llvm::Value* isCTRnz = gen->m_builder->CreateICmpNE(gen->getRegister("CTR"), 0, "ctrnz");
-        should_branch = gen->m_builder->CreateAnd(isCTRnz, llvm::ConstantInt::get(llvm::Type::getInt1Ty(gen->m_builder->getContext()), 1), "shBr");
+        func->m_irGen->m_builder->CreateSub(func->m_irGen->getRegister("CTR"), llvm::ConstantInt::get(llvm::Type::getInt32Ty(func->m_irGen->m_builder->getContext()), 1));
+        llvm::Value* isCTRnz = func->m_irGen->m_builder->CreateICmpNE(func->m_irGen->getRegister("CTR"), 0, "ctrnz");
+        should_branch = func->m_irGen->m_builder->CreateAnd(isCTRnz, llvm::ConstantInt::get(llvm::Type::getInt1Ty(func->m_irGen->m_builder->getContext()), 1), "shBr");
     }
 
     return should_branch;
 }
 
-inline void setCRField(IRGenerator* gen, uint32_t index, llvm::Value* field)
+inline void setCRField(IRFunc* func, uint32_t index, llvm::Value* field)
 {
-    llvm::LLVMContext& context = gen->m_module->getContext();
+    llvm::LLVMContext& context = func->m_irGen->m_module->getContext();
 
     int bitOffset = index * 4;
     llvm::Value* shiftAmount = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), bitOffset);
     llvm::Value* mask = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0b1111);
-    llvm::Value* shiftedMask = gen->m_builder->CreateShl(mask, shiftAmount, "shiftedMask");
+    llvm::Value* shiftedMask = func->m_irGen->m_builder->CreateShl(mask, shiftAmount, "shiftedMask");
 
     // clear the already stored bits
-    llvm::Value* invertedMask = gen->m_builder->CreateNot(shiftedMask, "invertedMask");
-    llvm::Value* clearedCR = gen->m_builder->CreateAnd(gen->getRegister("CR"), invertedMask, "clearedCR");
+    llvm::Value* invertedMask = func->m_irGen->m_builder->CreateNot(shiftedMask, "invertedMask");
+    llvm::Value* clearedCR = func->m_irGen->m_builder->CreateAnd(func->m_irGen->getRegister("CR"), invertedMask, "clearedCR");
 
     // update bits
-    llvm::Value* shiftedFieldValue = gen->m_builder->CreateShl(field, shiftAmount, "shiftedFieldValue");
-    llvm::Value* updatedCR = gen->m_builder->CreateOr(clearedCR, shiftedFieldValue, "updatedCR");
+    llvm::Value* shiftedFieldValue = func->m_irGen->m_builder->CreateShl(field, shiftAmount, "shiftedFieldValue");
+    llvm::Value* updatedCR = func->m_irGen->m_builder->CreateOr(clearedCR, shiftedFieldValue, "updatedCR");
 
-    gen->m_builder->CreateStore(updatedCR, gen->getRegister("CR"));
+    func->m_irGen->m_builder->CreateStore(updatedCR, func->m_irGen->getRegister("CR"));
 }
 
-inline llvm::Value* extractCRBit(IRGenerator* gen, uint32_t BI) {
-    llvm::LLVMContext& context = gen->m_builder->getContext();
+inline llvm::Value* extractCRBit(IRFunc* func, uint32_t BI) {
+    llvm::LLVMContext& context = func->m_irGen->m_builder->getContext();
 
     // create mask at bit pos
     llvm::Value* mask = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 1);
     llvm::Value* shiftAmount = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), BI);
-    llvm::Value* shiftedMask = gen->m_builder->CreateShl(mask, shiftAmount, "shm");
+    llvm::Value* shiftedMask = func->m_irGen->m_builder->CreateShl(mask, shiftAmount, "shm");
 
     // mask the bit
-    llvm::Value* isolatedBit = gen->m_builder->CreateAnd(gen->getRegister("CR"), shiftedMask, "ib");
-    llvm::Value* bit = gen->m_builder->CreateLShr(isolatedBit, shiftAmount, "bi");
+    llvm::Value* isolatedBit = func->m_irGen->m_builder->CreateAnd(func->m_irGen->getRegister("CR"), shiftedMask, "ib");
+    llvm::Value* bit = func->m_irGen->m_builder->CreateLShr(isolatedBit, shiftAmount, "bi");
 
     return bit;
 }
 
-inline llvm::Value* updateCRWithValue(IRGenerator* gen, llvm::Value* result, llvm::Value* value)
+inline llvm::Value* updateCRWithValue(IRFunc* func, llvm::Value* result, llvm::Value* value)
 {
-    llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), 0);
+    llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), 0);
 
     // lt
-    llvm::Value* isLT = gen->m_builder->CreateICmpSLT(value, result, "isLT");
-    llvm::Value* ltBit = gen->m_builder->CreateZExt(isLT, llvm::Type::getInt32Ty(gen->m_module->getContext()), "ltBit");
+    llvm::Value* isLT = func->m_irGen->m_builder->CreateICmpSLT(value, result, "isLT");
+    llvm::Value* ltBit = func->m_irGen->m_builder->CreateZExt(isLT, llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), "ltBit");
 
     // gt
-    llvm::Value* isGT = gen->m_builder->CreateICmpSGT(value, result, "isGT");
-    llvm::Value* gtBit = gen->m_builder->CreateZExt(isGT, llvm::Type::getInt32Ty(gen->m_module->getContext()), "gtBit");
+    llvm::Value* isGT = func->m_irGen->m_builder->CreateICmpSGT(value, result, "isGT");
+    llvm::Value* gtBit = func->m_irGen->m_builder->CreateZExt(isGT, llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), "gtBit");
 
     // eq 
-    llvm::Value* isEQ = gen->m_builder->CreateICmpEQ(value, result, "isEQ");
-    llvm::Value* eqBit = gen->m_builder->CreateZExt(isEQ, llvm::Type::getInt32Ty(gen->m_module->getContext()), "eqBit");
+    llvm::Value* isEQ = func->m_irGen->m_builder->CreateICmpEQ(value, result, "isEQ");
+    llvm::Value* eqBit = func->m_irGen->m_builder->CreateZExt(isEQ, llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), "eqBit");
 
     // so // TODO
     //llvm::Value* soBit = xerSO;
 
     // build cr0 field 
-    llvm::Value* crField = gen->m_builder->CreateOr(
-        gen->m_builder->CreateOr(ltBit, gen->m_builder->CreateShl(gtBit, 1)),
-        gen->m_builder->CreateOr(gen->m_builder->CreateShl(eqBit, 2),
-            gen->m_builder->CreateShl(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), 0), 3)), // so BIT TODO
+    llvm::Value* crField = func->m_irGen->m_builder->CreateOr(
+        func->m_irGen->m_builder->CreateOr(ltBit, func->m_irGen->m_builder->CreateShl(gtBit, 1)),
+        func->m_irGen->m_builder->CreateOr(func->m_irGen->m_builder->CreateShl(eqBit, 2),
+            func->m_irGen->m_builder->CreateShl(llvm::ConstantInt::get(llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), 0), 3)), // so BIT TODO
         "crField"
     );
 
     return crField;
 }
 
-inline llvm::Value* updateCRWithZero(IRGenerator* gen, llvm::Value* result)
+inline llvm::Value* updateCRWithZero(IRFunc* func, llvm::Value* result)
 {
-    llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), 0);
+    llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), 0);
 
     // lt
-    llvm::Value* isLT = gen->m_builder->CreateICmpSLT(result, zero, "isLT");
-    llvm::Value* ltBit = gen->m_builder->CreateZExt(isLT, llvm::Type::getInt32Ty(gen->m_module->getContext()), "ltBit");
+    llvm::Value* isLT = func->m_irGen->m_builder->CreateICmpSLT(result, zero, "isLT");
+    llvm::Value* ltBit = func->m_irGen->m_builder->CreateZExt(isLT, llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), "ltBit");
 
     // gt
-    llvm::Value* isGT = gen->m_builder->CreateICmpSGT(result, zero, "isGT");
-    llvm::Value* gtBit = gen->m_builder->CreateZExt(isGT, llvm::Type::getInt32Ty(gen->m_module->getContext()), "gtBit");
+    llvm::Value* isGT = func->m_irGen->m_builder->CreateICmpSGT(result, zero, "isGT");
+    llvm::Value* gtBit = func->m_irGen->m_builder->CreateZExt(isGT, llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), "gtBit");
 
     // eq 
-    llvm::Value* isEQ = gen->m_builder->CreateICmpEQ(result, zero, "isEQ");
-    llvm::Value* eqBit = gen->m_builder->CreateZExt(isEQ, llvm::Type::getInt32Ty(gen->m_module->getContext()), "eqBit");
+    llvm::Value* isEQ = func->m_irGen->m_builder->CreateICmpEQ(result, zero, "isEQ");
+    llvm::Value* eqBit = func->m_irGen->m_builder->CreateZExt(isEQ, llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), "eqBit");
 
     // so // TODO
     //llvm::Value* soBit = xerSO;
 
     // build cr0 field 
-    llvm::Value* crField = gen->m_builder->CreateOr(
-        gen->m_builder->CreateOr(ltBit, gen->m_builder->CreateShl(gtBit, 1)),
-        gen->m_builder->CreateOr(gen->m_builder->CreateShl(eqBit, 2), 
-        gen->m_builder->CreateShl(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), 0), 3)), // so BIT TODO
+    llvm::Value* crField = func->m_irGen->m_builder->CreateOr(
+        func->m_irGen->m_builder->CreateOr(ltBit, func->m_irGen->m_builder->CreateShl(gtBit, 1)),
+        func->m_irGen->m_builder->CreateOr(func->m_irGen->m_builder->CreateShl(eqBit, 2), 
+        func->m_irGen->m_builder->CreateShl(llvm::ConstantInt::get(llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), 0), 3)), // so BIT TODO
         "cr0Field"
     );
 
@@ -188,40 +190,40 @@ inline llvm::Value* updateCRWithZero(IRGenerator* gen, llvm::Value* result)
 // further optimizations can be added, maybe check if R3 is used (usually stores the return value)
 //
 
-inline llvm::Value* dynamicStore(IRGenerator* gen, uint32_t displ, uint32_t gpr)
+inline llvm::Value* dynamicStore(IRFunc* func, uint32_t displ, uint32_t gpr)
 {
-    llvm::Value* extendedDisplacement = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), llvm::APInt(16, displ, true)),
-        llvm::Type::getInt64Ty(gen->m_module->getContext()), "ext_D");
+    llvm::Value* extendedDisplacement = func->m_irGen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), llvm::APInt(16, displ, true)),
+        llvm::Type::getInt64Ty(func->m_irGen->m_module->getContext()), "ext_D");
 
     if (gpr == 1) // if gpr used is R1 (stack pointer)
     {
-        llvm::Value* regPtr = gen->getRegister("RR", gpr); 
-        llvm::Value* regValue = gen->m_builder->CreateLoad(
-            llvm::Type::getInt64Ty(gen->m_module->getContext()), regPtr, "regValue"); 
+        llvm::Value* regPtr = func->m_irGen->getRegister("RR", gpr); 
+        llvm::Value* regValue = func->m_irGen->m_builder->CreateLoad(
+            llvm::Type::getInt64Ty(func->m_irGen->m_module->getContext()), regPtr, "regValue"); 
 
-        llvm::Value* ea = gen->m_builder->CreateAdd(regValue, extendedDisplacement, "ea");
+        llvm::Value* ea = func->m_irGen->m_builder->CreateAdd(regValue, extendedDisplacement, "ea");
         return ea;
     }
 
     return nullptr;
 }
 
-inline llvm::Value* dynamicLoad(IRGenerator* gen)
+inline llvm::Value* dynamicLoad(IRFunc* func)
 {
     return nullptr;
 }
 
-inline llvm::Value* getEA(IRGenerator* gen, uint32_t displ, uint32_t gpr)
+inline llvm::Value* getEA(IRFunc* func, uint32_t displ, uint32_t gpr)
 {
-    llvm::Value* extendedDisplacement = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), llvm::APInt(16, displ, true)),
-        llvm::Type::getInt64Ty(gen->m_module->getContext()), "ext_D");
-    llvm::Value* regValue = gen->m_builder->CreateLoad(llvm::Type::getInt64Ty(gen->m_module->getContext()),
-        gen->getRegister("RR", gpr),
+    llvm::Value* extendedDisplacement = func->m_irGen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), llvm::APInt(16, displ, true)),
+        llvm::Type::getInt64Ty(func->m_irGen->m_module->getContext()), "ext_D");
+    llvm::Value* regValue = func->m_irGen->m_builder->CreateLoad(llvm::Type::getInt64Ty(func->m_irGen->m_module->getContext()),
+        func->m_irGen->getRegister("RR", gpr),
         "regValue");
-    llvm::Value* ea = gen->m_builder->CreateAdd(regValue, extendedDisplacement, "ea");
+    llvm::Value* ea = func->m_irGen->m_builder->CreateAdd(regValue, extendedDisplacement, "ea");
 
-    llvm::Value* addressPtr = gen->m_builder->CreateIntToPtr(ea,
-        llvm::Type::getDoubleTy(gen->m_module->getContext())->getPointerTo(),
+    llvm::Value* addressPtr = func->m_irGen->m_builder->CreateIntToPtr(ea,
+        llvm::Type::getDoubleTy(func->m_irGen->m_module->getContext())->getPointerTo(),
         "addressPtr"
     );
 
@@ -233,108 +235,177 @@ inline llvm::Value* getEA(IRGenerator* gen, uint32_t displ, uint32_t gpr)
 // INSTRUCTIONS Emitters
 //
 
-inline void mfspr_e(Instruction instr, IRGenerator* gen)
+inline void nop_e(Instruction instr, IRFunc* func)
 {
-    auto lrValue = gen->m_builder->CreateLoad(gen->m_builder->getInt64Ty(), gen->getSPR(instr.ops[1]), "load_spr");
-    gen->m_builder->CreateStore(lrValue, gen->getRegister("RR", instr.ops[0]));
+	// best instruction ever
+    return;
+}
+
+inline void twi_e(Instruction instr, IRFunc* func)
+{
+    // temp stub
+    return;
+}
+
+inline void bcctr_e(Instruction instr, IRFunc* func)
+{
+    // temp stub
+    return;
+}
+
+inline void mfspr_e(Instruction instr, IRFunc* func)
+{
+    auto lrValue = func->m_irGen->m_builder->CreateLoad(func->m_irGen->m_builder->getInt64Ty(), func->m_irGen->getSPR(instr.ops[1]), "load_spr");
+    func->m_irGen->m_builder->CreateStore(lrValue, func->m_irGen->getRegister("RR", instr.ops[0]));
 }
 
 
+inline void mtspr_e(Instruction instr, IRFunc* func)
+{
+    auto rrValue = func->m_irGen->m_builder->CreateTrunc(func->m_irGen->m_builder->CreateLoad(func->m_irGen->m_builder->getInt64Ty(), func->m_irGen->getRegister("RR", instr.ops[1]), "load_rr"),
+                                               func->m_irGen->m_builder->getInt32Ty(), "32b_rr");
+    func->m_irGen->m_builder->CreateStore(rrValue, func->m_irGen->getSPR(instr.ops[0]));
+}
 
-inline void bl_e(Instruction instr, IRGenerator* gen)
+inline void bl_e(Instruction instr, IRFunc* func)
 {
     uint32_t target = instr.address + signExtend(instr.ops[0], 24);
-    llvm::BasicBlock* BB = gen->getCreateBBinMap(target);
+    llvm::BasicBlock* target_BB = func->getCreateBBinMap(target);
 
     // update link register with the llvm return address of the next ir instruction
     // this is an interesting one, since i really don't have a good way to "store the instr.address + 4" in LR and make it work,
     // here is what i do, i create a new basic block for the address of the next instruction (so instr.address + 4 bytes) and store it
     // in LR, so when LR is used to return, it branch to the basic block so the next instruction
     // i think there is a better way to handle this but.. it should work fine for now :}
-    llvm::BasicBlock* lr_BB = gen->getCreateBBinMap(instr.address + 4);
-    gen->m_builder->CreateStore(lr_BB, gen->getRegister("LR")); // Store in Link Register (LR)
+    // llvm::BlockAddress* lr_BB = func->getCreateBBinMap(instr.address + 4); fix it
+
+    // get the function containing the basic block
+    llvm::Function* F = func->m_irGen->m_builder->GetInsertBlock()->getParent();
+    llvm::BasicBlock* returnAddr = func->getCreateBBinMap(instr.address + 4);
+ 
+    // block address
+    llvm::Value* blockAddr = llvm::BlockAddress::get(F, returnAddr);
+    llvm::Value* blockAddrInt = func->m_irGen->m_builder->CreatePtrToInt(blockAddr, func->m_irGen->m_builder->getInt64Ty());
+
+    func->m_irGen->m_builder->CreateStore(blockAddrInt, func->m_irGen->getRegister("LR"));
+
+
+
 
     // emit branch in ir
-    gen->m_builder->CreateBr(BB);
+    func->m_irGen->m_builder->CreateBr(target_BB);
 
     // i actually think this is not needed for BL instruction, 
     // since bl is used if LK is 1 so it assumes that the function is returning 
     // so it will also branch to lr_bb
-    gen->m_builder->CreateBr(lr_BB);
+    func->m_irGen->m_builder->CreateBr(returnAddr);
 
     // here i set the emit insertPoint to that basic block i created for LR
-    gen->m_builder->SetInsertPoint(lr_BB);
+    func->m_irGen->m_builder->SetInsertPoint(returnAddr);
 }
 
-inline void stfd_e(Instruction instr, IRGenerator* gen)
+inline void b_e(Instruction instr, IRFunc* func)
 {
-    auto frValue = gen->m_builder->CreateLoad(gen->m_builder->getDoubleTy(), gen->getRegister("FR", instr.ops[0]), "load_fr");
-    gen->m_builder->CreateStore(frValue, getEA(gen, instr.ops[1], instr.ops[2])); // address needs to be a pointer (pointer to an address in memory)
+    uint32_t target = instr.address + signExtend(instr.ops[0], 24);
+    llvm::BasicBlock* target_BB = func->getCreateBBinMap(target);
+
+    func->m_irGen->m_builder->CreateBr(target_BB);
 }
 
-inline void stw_e(Instruction instr, IRGenerator* gen)
+inline void bclr_e(Instruction instr, IRFunc* func)
+{
+
+    //
+    // TODO, BRANCH CONDITIONS
+    //
+    assert(instr.ops[0] == 0x14); // only BO = 0x14 is supported for now (branch always)
+
+    // Load the stored LR value
+    llvm::Value* LR_val = func->m_irGen->m_builder->CreateLoad(func->m_irGen->m_builder->getInt64Ty(), func->m_irGen->getRegister("LR"), "LR_val");
+   
+    // Cast i64 back to an actual block address (i8*)
+    llvm::Value* blockPtr = func->m_irGen->m_builder->CreateIntToPtr(LR_val, llvm::Type::getInt8Ty(func->m_irGen->m_module->getContext())->getPointerTo(), "retPtr");
+
+
+    // Create an indirect branch to the stored block
+    llvm::IndirectBrInst* indirectBranch = func->m_irGen->m_builder->CreateIndirectBr(blockPtr);
+	indirectBranch->addDestination(func->getCreateBBinMap(0));
+}
+
+inline void stfd_e(Instruction instr, IRFunc* func)
+{
+    auto frValue = func->m_irGen->m_builder->CreateLoad(func->m_irGen->m_builder->getDoubleTy(), func->m_irGen->getRegister("FR", instr.ops[0]), "load_fr");
+    func->m_irGen->m_builder->CreateStore(frValue, getEA(func, instr.ops[1], instr.ops[2])); // address needs to be a pointer (pointer to an address in memory)
+}
+
+inline void stw_e(Instruction instr, IRFunc* func)
 {
 	// truncate the value to 32 bits
-    auto rrValue = gen->m_builder->CreateLoad(gen->m_builder->getInt64Ty(), gen->getRegister("RR", instr.ops[0]), "load_rr");
-    gen->m_builder->CreateStore(gen->m_builder->CreateTrunc(rrValue, llvm::Type::getInt32Ty(gen->m_module->getContext()), "low32Bits"), 
-                                                            getEA(gen, instr.ops[1], instr.ops[2]));
+    auto rrValue = func->m_irGen->m_builder->CreateLoad(func->m_irGen->m_builder->getInt64Ty(), func->m_irGen->getRegister("RR", instr.ops[0]), "load_rr");
+    func->m_irGen->m_builder->CreateStore(func->m_irGen->m_builder->CreateTrunc(rrValue, llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), "low32Bits"), 
+                                                            getEA(func, instr.ops[1], instr.ops[2]));
 }
 
 // store word with update, update means that the address register is updated with the new address
 // so rA = rA + displacement after the store
-inline void stwu_e(Instruction instr, IRGenerator* gen)
+inline void stwu_e(Instruction instr, IRFunc* func)
 {
-	llvm::Value* eaVal = getEA(gen, instr.ops[1], instr.ops[2]);
+	llvm::Value* eaVal = getEA(func, instr.ops[1], instr.ops[2]);
 
-    auto rrValue = gen->m_builder->CreateLoad(gen->m_builder->getInt64Ty(), gen->getRegister("RR", instr.ops[0]), "load_rr");
-    gen->m_builder->CreateStore(gen->m_builder->CreateTrunc(rrValue, llvm::Type::getInt32Ty(gen->m_module->getContext()), "low32Bits"),
+    auto rrValue = func->m_irGen->m_builder->CreateLoad(func->m_irGen->m_builder->getInt64Ty(), func->m_irGen->getRegister("RR", instr.ops[0]), "load_rr");
+    func->m_irGen->m_builder->CreateStore(func->m_irGen->m_builder->CreateTrunc(rrValue, llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), "low32Bits"),
         eaVal);
     
 	// update rA
-	gen->m_builder->CreateStore(eaVal, gen->getRegister("RR", instr.ops[2]));
+	func->m_irGen->m_builder->CreateStore(eaVal, func->m_irGen->getRegister("RR", instr.ops[2]));
 }
 
-inline void addi_e(Instruction instr, IRGenerator* gen)
+inline void addi_e(Instruction instr, IRFunc* func)
 {
-    if(strcmp(instr.opcName.c_str(), "li") == 0)
+    llvm::Value* im = func->m_irGen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), instr.ops[2]),
+        llvm::Type::getInt64Ty(func->m_irGen->m_module->getContext()), "im");
+    llvm::Value* rrValue;
+    if (instr.ops[1] != 0)
     {
-        llvm::Value* im = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), instr.ops[1]),
-            llvm::Type::getInt64Ty(gen->m_module->getContext()), "im");
-        gen->m_builder->CreateStore(im, gen->getRegister("RR", instr.ops[0]));
-        return;
+        rrValue = func->m_irGen->m_builder->CreateLoad(func->m_irGen->m_builder->getInt64Ty(), func->m_irGen->getRegister("RR", instr.ops[1]), "load_rr");
+	}
+	else
+	{
+	    rrValue = llvm::ConstantInt::get(llvm::Type::getInt64Ty(func->m_irGen->m_module->getContext()), 0);
+	}
+       
+
+    llvm::Value* val = instr.ops[1] ? func->m_irGen->m_builder->CreateAdd(rrValue, im, "val") : im;
+    func->m_irGen->m_builder->CreateStore(val, func->m_irGen->getRegister("RR", instr.ops[0]));
+}
+
+
+//
+// add immediate shifted
+// if rA = 0 then it will use value 0 and not the content of rA (because lis use 0)
+inline void addis_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* shift = func->m_irGen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), instr.ops[2] << 16),
+                                                    llvm::Type::getInt64Ty(func->m_irGen->m_module->getContext()), "shift");
+    llvm::Value* rrValue;
+    if (instr.ops[1] != 0)
+    {
+        rrValue = func->m_irGen->m_builder->CreateLoad(func->m_irGen->m_builder->getInt64Ty(), func->m_irGen->getRegister("RR", instr.ops[1]), "load_rr");
+    }
+    else
+    {
+        rrValue = llvm::ConstantInt::get(llvm::Type::getInt64Ty(func->m_irGen->m_module->getContext()), 0);
     }
 
-    llvm::Value* im = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), instr.ops[2]),
-        llvm::Type::getInt64Ty(gen->m_module->getContext()), "im");
-    // Add immediate
-    llvm::Value* val = gen->m_builder->CreateAdd(gen->getRegister("RR", instr.ops[1]), im, "val");
-    gen->m_builder->CreateStore(val, gen->getRegister("RR", instr.ops[0]));
+	llvm::Value* val = instr.ops[1] ? func->m_irGen->m_builder->CreateAdd(rrValue, shift, "val") : shift;
+    func->m_irGen->m_builder->CreateStore(val, func->m_irGen->getRegister("RR", instr.ops[0]));
 }
 
-inline void addis_e(Instruction instr, IRGenerator* gen)
+/*inline void orx_e(Instruction instr, IRFunc* func)
 {
-    if (strcmp(instr.opcName.c_str(), "lis") == 0)
-    {
-        uint32_t shifted = instr.ops[1] << 16;
-        llvm::Value* im = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), shifted),
-            llvm::Type::getInt64Ty(gen->m_module->getContext()), "im");
-        gen->m_builder->CreateStore(im, gen->getRegister("RR", instr.ops[0]));
-        return;
-    }
-
-    uint32_t shifted = instr.ops[2] << 16;
-    llvm::Value* im = gen->m_builder->CreateSExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), shifted),
-        llvm::Type::getInt64Ty(gen->m_module->getContext()), "im");
-    // Add immediate
-    llvm::Value* val = gen->m_builder->CreateAdd(gen->getRegister("RR", instr.ops[1]), im, "val");
-    gen->m_builder->CreateStore(val, gen->getRegister("RR", instr.ops[0]));
-}
-
-inline void orx_e(Instruction instr, IRGenerator* gen)
-{
-    llvm::Value* result = gen->m_builder->CreateOr(gen->getRegister("RR", instr.ops[1]),
-        gen->getRegister("RR", instr.ops[2]), "or_result");
-    gen->m_builder->CreateStore(result, gen->getRegister("RR", instr.ops[0]));
+    llvm::Value* result = func->m_irGen->m_builder->CreateOr(func->m_irGen->getRegister("RR", instr.ops[1]),
+        func->m_irGen->getRegister("RR", instr.ops[2]), "or_result");
+    func->m_irGen->m_builder->CreateStore(result, func->m_irGen->getRegister("RR", instr.ops[0]));
 
     // update condition register if or. (orRC)
     if (strcmp(instr.opcName.c_str(), "orRC") == 0) 
@@ -342,39 +413,74 @@ inline void orx_e(Instruction instr, IRGenerator* gen)
         // update CR0 in CR
         setCRField(gen, 0, updateCRWithZero(gen, result));
     }
-}
+}*/
 
-inline void bcx_e(Instruction instr, IRGenerator* gen)
+inline void bcx_e(Instruction instr, IRFunc* func)
 {
     // first check how to manage the branch condition
     // if "should_branch" == True then
-    llvm::Value* bi = gen->m_builder->CreateTrunc(extractCRBit(gen, instr.ops[1]), gen->m_builder->getInt1Ty());
-    llvm::Value* should_branch = getBOOperation(gen, instr, bi);
+    llvm::Value* bi = func->m_irGen->m_builder->CreateTrunc(extractCRBit(func, instr.ops[1]), func->m_irGen->m_builder->getInt1Ty());
+    llvm::Value* should_branch = getBOOperation(func, instr, bi);
 
 
     // compute condition BBs
-    llvm::BasicBlock* b_true = gen->getCreateBBinMap(instr.address + (instr.ops[2] << 2));
-    llvm::BasicBlock* b_false = gen->getCreateBBinMap(instr.address + 4);
+    llvm::BasicBlock* b_true = func->getCreateBBinMap(instr.address + (instr.ops[2] << 2));
+    llvm::BasicBlock* b_false = func->getCreateBBinMap(instr.address + 4);
 
-    gen->m_builder->CreateCondBr(should_branch, b_true, b_false);
+    func->m_irGen->m_builder->CreateCondBr(should_branch, b_true, b_false);
 }
 
-inline void cmpli_e(Instruction instr, IRGenerator* gen)
+inline void cmpli_e(Instruction instr, IRFunc* func)
 {
     
     llvm::Value* a;
     if(instr.ops[1] = 0)
     {
-        llvm::Value* low32Bits = gen->m_builder->CreateTrunc(gen->getRegister("RR", instr.ops[2]), llvm::Type::getInt32Ty(gen->m_module->getContext()), "low32");
-        a = gen->m_builder->CreateZExt(low32Bits, gen->m_builder->getInt64Ty(), "ext");
+        llvm::Value* low32Bits = func->m_irGen->m_builder->CreateTrunc(func->m_irGen->getRegister("RR", instr.ops[2]), llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), "low32");
+        a = func->m_irGen->m_builder->CreateZExt(low32Bits, func->m_irGen->m_builder->getInt64Ty(), "ext");
     } 
     else
     {
-        a = gen->getRegister("RR", instr.ops[2]);
+        a = func->m_irGen->getRegister("RR", instr.ops[2]);
     }
 
-    llvm::Value* imm = gen->m_builder->CreateZExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(gen->m_module->getContext()), 
-        instr.ops[3]), gen->m_builder->getInt64Ty(), "extendedA");
+    llvm::Value* imm = func->m_irGen->m_builder->CreateZExt(llvm::ConstantInt::get(llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), 
+        instr.ops[3]), func->m_irGen->m_builder->getInt64Ty(), "extendedA");
     
-    setCRField(gen, instr.ops[0], updateCRWithValue(gen, imm, a));
+    setCRField(func, instr.ops[0], updateCRWithValue(func, imm, a));
+}
+
+inline void lwz_e(Instruction instr, IRFunc* func)
+{
+    // EA is the sum(rA | 0) + d.The word in memory addressed by EA is loaded into the low - order 32 bits of rD.The
+    // high - order 32 bits of rD are cleared.
+    llvm::Value* loadedValue = func->m_irGen->m_builder->CreateLoad(llvm::Type::getInt32Ty(func->m_irGen->m_builder->getContext()), getEA(func, instr.ops[1], instr.ops[2]), "loaded_value");
+    func->m_irGen->m_builder->CreateStore(func->m_irGen->m_builder->CreateZExt(loadedValue, llvm::Type::getInt64Ty(func->m_irGen->m_builder->getContext()), "zext_lwz"), func->m_irGen->getRegister("RR", instr.ops[0]));
+}
+
+inline void lhz_e(Instruction instr, IRFunc* func)
+{
+    //EA is the sum(rA | 0) + d.The half word in memory addressed by EA is loaded into the low - order 16 bits of rD.
+    //The remaining bits in rD are cleared.
+	llvm::Value* ea_val = func->m_irGen->m_builder->CreateLoad(llvm::Type::getInt16Ty(func->m_irGen->m_builder->getContext()), getEA(func, instr.ops[1], instr.ops[2]), "ea_val");
+    llvm::Value* low16 = func->m_irGen->m_builder->CreateTrunc(ea_val, llvm::Type::getInt16Ty(func->m_irGen->m_builder->getContext()), "low16");
+    func->m_irGen->m_builder->CreateStore(func->m_irGen->m_builder->CreateZExt(low16, llvm::Type::getInt64Ty(func->m_irGen->m_builder->getContext()), "zext_lhz"), func->m_irGen->getRegister("RR", instr.ops[0]));
+}
+
+inline void orx_e(Instruction instr, IRFunc* func)
+{
+    // The contents of rS are ORed with the contents of rB and the result is placed into rA.
+	llvm::Value* value = func->m_irGen->m_builder->CreateOr(func->m_irGen->m_builder->CreateLoad(func->m_irGen->m_builder->getInt64Ty(), func->m_irGen->getRegister("RR", instr.ops[1]), "orA"),
+                                                  func->m_irGen->m_builder->CreateLoad(func->m_irGen->m_builder->getInt64Ty(), func->m_irGen->getRegister("RR", instr.ops[2]), "orB"),
+                                                  "or");
+	func->m_irGen->m_builder->CreateStore(value, func->m_irGen->getRegister("RR", instr.ops[0]));
+}
+
+inline void sth_e(Instruction instr, IRFunc* func)
+{
+    //EA is the sum (rA|0) + d. The contents of the low-order 16 bits of rS are stored into the half word in memory
+    //addressed by EA.
+    llvm::Value* low16 = func->m_irGen->m_builder->CreateTrunc(func->m_irGen->m_builder->CreateLoad(llvm::Type::getInt64Ty(func->m_irGen->m_builder->getContext()), func->m_irGen->getRegister("RR", instr.ops[0]), "load_rr"),
+                                                                                llvm::Type::getInt16Ty(func->m_irGen->m_builder->getContext()), "low16");
+    func->m_irGen->m_builder->CreateStore(low16, getEA(func, instr.ops[1], instr.ops[2]));
 }

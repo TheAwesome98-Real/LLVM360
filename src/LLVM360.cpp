@@ -11,11 +11,14 @@
 #include <Xex/XexLoader.h>
 #include <conio.h>  // for _kbhit
 #include <IR/Unit/UnitTesting.h>
+#include <IR/IRFunc.h>
+
 
 // Debug
 bool printINST = true;
-bool genLLVMIR = true;
-bool isUnitTesting = true;
+bool printFile = false;  // Set this flag to true or false based on your preference
+bool genLLVMIR = false;
+bool isUnitTesting = false;
 bool doOverride = false; // if it should override the endAddress to debug
 uint32_t overAddr = 0x82060150;
 
@@ -23,13 +26,11 @@ uint32_t overAddr = 0x82060150;
 uint32_t instCount = 0;
 
 // Naive+ stuff
-std::unordered_map<uint32_t, Instruction> instructionsList;
 XexImage* loadedXex;
-IRGenerator* irGen;
+IRGenerator* g_irGen;
 llvm::LLVMContext cxt;
 llvm::Module* mod = new llvm::Module("Xenon", cxt);
 llvm::IRBuilder<llvm::NoFolder> builder(cxt);
-
 
 
 
@@ -44,6 +45,7 @@ void SaveSectionToBin(const char* filename, const uint8_t* dataPtr, size_t dataS
     binFile.write(reinterpret_cast<const char*>(dataPtr), dataSize);
     binFile.close();
 }
+
 
 void saveSection(const char* path, uint32_t idx)
 {
@@ -62,7 +64,9 @@ void unitTest(IRGenerator* gen)
 {
     //unit_mfspr(gen);
     //unit_stfd(gen);
-    unit_stwu(gen);
+    //unit_stwu(gen);
+    //unit_lwz(gen);
+	//unit_li(gen);
     //
     // DUMP
     //
@@ -73,16 +77,88 @@ void unitTest(IRGenerator* gen)
 }
 
 
-bool pass_Decode()
+bool pass_Flow()
 {
-
     bool ret = true;
 
     for (size_t i = 0; i < loadedXex->GetNumSections(); i++)
     {
         const Section* section = loadedXex->GetSection(i);
 
-        if (!section->CanExecute()) 
+        if (!section->CanExecute())
+        {
+            continue;
+        }
+        printf("\nFlow for section %s\n\n", section->GetName().c_str());
+        // compute code range
+        const auto baseAddress = loadedXex->GetBaseAddress();
+        const auto sectionBaseAddress = baseAddress + section->GetVirtualOffset();
+        auto endAddress = baseAddress + section->GetVirtualOffset() + section->GetVirtualSize();
+        auto address = sectionBaseAddress;
+
+        // create the function for the first function
+		IRFunc* first = g_irGen->getCreateFuncInMap(sectionBaseAddress);
+        IRFunc* prevFunc = nullptr;
+		IRFunc* currentFunc = first;
+
+        while (address < endAddress)
+        {
+			const char* name = g_irGen->instrsList.at(address).opcName.c_str();
+            if (strcmp(name, "bclr") == 0)
+            {
+				printf("Found end of function bounds at with BLR: %08X\n", address);
+				currentFunc->end_address = address;
+				prevFunc = currentFunc;
+				currentFunc = g_irGen->getCreateFuncInMap(address + 4);
+            }
+
+            /*/ todo, more Heuristic because tail calls
+            ..
+            ..
+            B
+            NOP
+
+            also:
+            
+            ..
+            ..
+            B
+            MFSPR .., LR
+            
+            the edge cases i can just let it inline the rest, cause they should not be big ass functions
+            */
+           
+            address += 4; // always 4
+        }
+    }
+
+    
+
+    return ret;
+}
+
+
+bool pass_Decode()
+{
+
+    bool ret = true;
+
+    // Open the output file if printFile is true
+    std::ofstream outFile;
+    if (printFile) {
+        outFile.open("instructions_output.txt");
+        if (!outFile.is_open()) {
+            printf("Failed to open the file for writing instructions.\n");
+            ret = false;
+            return ret;
+        }
+    }
+
+    for (size_t i = 0; i < loadedXex->GetNumSections(); i++)
+    {
+        const Section* section = loadedXex->GetSection(i);
+
+        if (!section->CanExecute())
         {
             continue;
         }
@@ -107,7 +183,7 @@ bool pass_Decode()
             }
 
             // add instruction to map
-            instructionsList.try_emplace(address, instruction);
+            g_irGen->instrsList.try_emplace(address, instruction);
 
             if (printINST) {
                 // print raw PPC decoded instruction + operands
@@ -120,12 +196,24 @@ bool pass_Decode()
                 }
 
                 std::string output = oss.str();
-                printf("%s\n", output.c_str());
+                if (printFile) {
+                    // Write output to file if printFile is true
+                    outFile << output << std::endl;
+                }
+                else {
+                    // Print output to the console
+                    printf("%s\n", output.c_str());
+                }
             }
 
-            address += instructionSize; // always 4
+            address += 4; // always 4
             instCount++; // instruction count
         }
+    }
+
+    // Close the output file if it was opened
+    if (printFile) {
+        outFile.close();
     }
 
     return ret;
@@ -160,12 +248,12 @@ bool pass_Emit()
                 bool result;
                 if (isUnitTesting)
                 {
-                    unitTest(irGen);
+                    unitTest(g_irGen);
                     result = false;
                 }
                 else
                 {
-                    result = irGen->EmitInstruction(instructionsList.at(address));
+                    //result = g_irGen->EmitInstruction(g_irGen->instrsList.at(address));
                 }
 
                 if (!result) {
@@ -178,7 +266,7 @@ bool pass_Emit()
         }
     }
 
-    irGen->writeIRtoFile();
+    g_irGen->writeIRtoFile();
 
     return ret;
 }
@@ -189,8 +277,8 @@ int main()
 {
     loadedXex = new XexImage(L"LLVMTest1.xex");
     loadedXex->LoadXex();
-    irGen = new IRGenerator(loadedXex, mod, &builder);
-    irGen->Initialize();
+    g_irGen = new IRGenerator(loadedXex, mod, &builder);
+    g_irGen->Initialize();
 
     printf("\n\n\n");
     auto start = std::chrono::high_resolution_clock::now();
@@ -222,30 +310,30 @@ int main()
     //
 
     // first recomp pass: Decode xex instructions
-    if(!pass_Decode())
+
+    
+    if (!pass_Decode())
     {
         printf("something went wrong - Pass: DECODE\n");
         return -1;
     }
 
-    irGen->instrsList = instructionsList;
-
-    if (!irGen->pass_controlFlow())
+    if (!pass_Flow())
     {
-        printf("something went wrong - Pass: CONTROLFLOW\n");
+        printf("something went wrong - Pass: FLOW\n");
         return -1;
     }
 
-    // third recomp pass: Emit IR code
+    /*/ third recomp pass: Emit IR code
     if (!pass_Emit())
     {
         printf("something went wrong - Pass: EMIT\n");
         return -1;
-    }
+    }*/
 
     // sections
-    saveSection("bin/Debug/rdata.bin", 0);
-    saveSection("bin/Debug/data.bin", 3);
+    //saveSection("bin/Debug/rdata.bin", 0);
+    //saveSection("bin/Debug/data.bin", 3);
    
     // Stop the timer
     auto end = std::chrono::high_resolution_clock::now();
@@ -257,6 +345,8 @@ int main()
     printf("\n\n\nDecoding process took: %f seconds\n", duration.count() / 1000000.0);
     printf("Decoded %i PPC Instructions\n", instCount);
   
+
+
     // Splash texts
     printf("Hello, World!\n");
     printf("Say hi to the new galaxy note\n");
