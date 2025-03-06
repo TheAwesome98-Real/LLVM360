@@ -8,6 +8,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/InlineAsm.h"
 
 #include "Xex/XexLoader.h"
 #include "Decoder/Instruction.h"
@@ -74,3 +75,36 @@ public:
   std::unordered_map<uint32_t, IRFunc*> m_function_map;
   std::unordered_map<uint32_t, Instruction> instrsList;
 };
+
+
+// Define a pseudo-instruction that will print as a comment.
+class CommentInst : public llvm::Instruction {
+public:
+    std::string CommentText;
+
+
+   
+
+
+    CommentInst(const std::string& Text, llvm::LLVMContext& Context)
+        : llvm::Instruction(llvm::Type::getInt32Ty(Context),
+            llvm::Instruction::UserOp1, /*OperandList=*/nullptr, 0),
+        CommentText(Text) {
+    }
+
+    CommentInst* clone() const 
+    {
+        return new CommentInst(CommentText, getContext());
+    }
+
+    
+    void print(llvm::raw_ostream& OS) const 
+    {
+        OS << "; " << CommentText;
+    }
+    void dump() const { print(llvm::errs()); }
+};
+
+
+
+

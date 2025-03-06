@@ -70,6 +70,7 @@ void IRGenerator::InitLLVM() {
 	IRFunc* xex_entry = getCreateFuncInMap(m_xexImage->GetEntryAddress());
 	initFuncBody(xex_entry);
     m_builder->SetInsertPoint(entry);
+    m_builder->CreateCall(dllTestFunc);
 	m_builder->CreateCall(xex_entry->m_irFunc, { xCtx, llvm::ConstantInt::get(m_builder->getInt32Ty(), m_xexImage->GetEntryAddress())});
 
     
@@ -87,6 +88,9 @@ void IRGenerator::Initialize() {
 }
 
 bool first = true;
+
+#define DEBUG_COMMENT(x) m_builder->CreateAdd(m_builder->getInt32(0), m_builder->getInt32(0), x);
+
 bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
     // EEHHE can't use a std::string in a switch statement sooo...
     // let's map all the instruction names (as i already needed to do with a switch statement)
@@ -94,7 +98,19 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
     // emitter
     // all emitter functions take as parameter <Instruction, IRGenerator>
 
-  
+	// Debug, help to find the instruction and debug IR code
+    std::ostringstream oss;
+    oss << std::hex << std::uppercase << std::setfill('0');
+    oss << "------ " << std::setw(8) << instr.address << ":   " << instr.opcName;
+
+    for (size_t i = 0; i < instr.ops.size(); ++i) {
+        oss << " " << std::setw(2) << static_cast<int>(instr.ops.at(i));
+    }
+    oss << " ------";
+    DEBUG_COMMENT(oss.str().c_str())
+   
+
+
     // <name>_e = <name>_emitter
     static std::unordered_map<std::string, std::function<void(Instruction, IRFunc*)>>
     instructionMap = 
