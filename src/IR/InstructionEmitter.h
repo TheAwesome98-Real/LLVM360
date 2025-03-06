@@ -32,6 +32,10 @@
 #define zExt64(x) BUILD->CreateZExt(x, BUILD->getInt64Ty(), "zEx64")
 #define zExt32(x) BUILD->CreateZExt(x, BUILD->getInt32Ty(), "zEx32")
 
+#define sign64(x)  llvm::ConstantInt::getSigned(i32_T, x)
+#define sign32(x)  llvm::ConstantInt::getSigned(i64_T, x)
+#define sign16(x)  llvm::ConstantInt::getSigned(i16_T, x)
+
 inline uint32_t signExtend(uint32_t value, int size)
 {
     if (value & (1 << (size - 1))) {
@@ -331,15 +335,6 @@ inline void add_e(Instruction instr, IRFunc* func)
     BUILD->CreateStore(val, func->getRegister("RR", instr.ops[0]));
 }
 
-
-
-inline void ori_e(Instruction instr, IRFunc* func)
-{
-	
-   
-    //BUILD->CreateStore(frValue, func->);
-}
-
 inline void bcx_e(Instruction instr, IRFunc* func)
 {
     // first check how to manage the branch condition
@@ -380,8 +375,8 @@ inline void cmpw_e(Instruction instr, IRFunc* func)
     llvm::Value* rB = gprVal(instr.ops[3]);
     if(instr.ops[1] != 1)
     {
-        rA = BUILD->CreateSExt(BUILD->CreateTrunc(rA, i32_T, "tr"), i64_T, "ex");
-        rB = BUILD->CreateSExt(BUILD->CreateTrunc(rB, i32_T, "tr"), i64_T, "ex");
+        rA = sExt64(trcTo32(rA));
+        rB = sExt64(trcTo32(rB));
     }
   
     llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(rA, rB, "lt"));
@@ -392,6 +387,27 @@ inline void cmpw_e(Instruction instr, IRFunc* func)
 	llvm::Value* field = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
 
 	setCRField(func, instr.ops[0], field);
+}
+
+inline void cmpwi_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* rA = gprVal(instr.ops[2]);
+    llvm::Value* imm = sign16(instr.ops[3]);
+    if (instr.ops[1] != 1)
+    {
+        rA = sExt64(trcTo32(rA));
+        imm = sExt64(imm);
+    }
+
+    llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(rA, imm, "lt"));
+    llvm::Value* GT = zExt32(BUILD->CreateICmpSGT(rA, imm, "gt"));
+    llvm::Value* EQ = zExt32(BUILD->CreateICmpEQ(rA, imm, "eq"));
+
+    // TODO
+    llvm::Value* SO_bit = i32Const(0);
+    llvm::Value* field = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
+
+    setCRField(func, instr.ops[0], field);
 }
 
 
@@ -412,12 +428,6 @@ inline void lhz_e(Instruction instr, IRFunc* func)
     BUILD->CreateStore(zExt64(trcTo16(ea_val)), func->getRegister("RR", instr.ops[0]));
 }
 
-inline void orx_e(Instruction instr, IRFunc* func)
-{
-    // The contents of rS are ORed with the contents of rB and the result is placed into rA.
-	llvm::Value* value = BUILD->CreateOr(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "or");
-	BUILD->CreateStore(value, func->getRegister("RR", instr.ops[0]));
-}
 
 inline void sth_e(Instruction instr, IRFunc* func)
 {
@@ -425,4 +435,73 @@ inline void sth_e(Instruction instr, IRFunc* func)
     //addressed by EA.
     llvm::Value* low16 = trcTo16(gprVal(instr.ops[0]));
     BUILD->CreateStore(low16, getEA(func, instr.ops[1], instr.ops[2]));
+}
+
+#define DMASK(b, e) (((0xFFFFFFFF << ((31 + (b)) - (e))) >> (b)))
+// please optimize this
+inline void rlwinmRC_e(Instruction instr, IRFunc* func)
+{
+    uint32_t mask = (instr.ops[3] <= instr.ops[4]) ? (DMASK(instr.ops[3], instr.ops[4])) : (DMASK(0, instr.ops[4]) | DMASK(3, 31));
+
+    uint32_t width = 32 - instr.ops[2];
+    llvm::Value* lhs = BUILD->CreateShl(gprVal(instr.ops[1]), instr.ops[2], "lhs");
+    llvm::Value* rhs = BUILD->CreateLShr(gprVal(instr.ops[1]), width, "rhs");
+    llvm::Value* rotl = BUILD->CreateOr(lhs, rhs, "rotl");
+    
+    auto masked = trcTo32(BUILD->CreateAnd(rotl, i64Const(mask)));
+    BUILD->CreateStore(zExt64(masked), func->getRegister("RR", instr.ops[0]));
+    
+    // RC
+    llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(masked, i32Const(0), "lt"));
+    llvm::Value* GT = zExt32(BUILD->CreateICmpSGT(masked, i32Const(0), "gt"));
+    llvm::Value* EQ = zExt32(BUILD->CreateICmpEQ(masked, i32Const(0), "eq"));
+    // TODO
+    llvm::Value* SO_bit = i32Const(0);
+    llvm::Value* field = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
+
+
+    setCRField(func, 0, field);
+}
+
+
+
+//
+//// bitwise operators
+//
+
+inline void orx_e(Instruction instr, IRFunc* func)
+{
+    // The contents of rS are ORed with the contents of rB and the result is placed into rA.
+    llvm::Value* value = BUILD->CreateOr(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "or");
+    BUILD->CreateStore(value, func->getRegister("RR", instr.ops[0]));
+}
+
+inline void ori_e(Instruction instr, IRFunc* func)
+{
+    auto im64 = i64Const(instr.ops[2]);
+    auto orResult = BUILD->CreateOr(gprVal(instr.ops[1]), im64, "or");
+    BUILD->CreateStore(orResult, func->getRegister("RR", instr.ops[0]));
+}
+
+inline void and_e(Instruction instr, IRFunc* func)
+{
+    auto andResult = BUILD->CreateAnd(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "and");
+    BUILD->CreateStore(andResult, func->getRegister("RR", instr.ops[0]));
+}
+
+inline void xor_e(Instruction instr, IRFunc* func)
+{
+    auto xorResult = BUILD->CreateXor(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "xor");
+    BUILD->CreateStore(xorResult, func->getRegister("RR", instr.ops[0]));
+}
+
+inline void neg_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* negVal = BUILD->CreateNeg(gprVal(instr.ops[1]), "neg");
+
+    // overflow detection: if (rA == MIN_INT) then OV = 1
+    //llvm::Value* minInt = BUILD->getInt64(0x8000000000000000);
+    //llvm::Value* isOverflow = BUILD->CreateICmpEQ(rA, minInt, "overflow_check");
+    //llvm::Value* OV = BUILD->CreateSelect(OE, isOverflow, Builder.getInt1(false), "OV_flag");
+    BUILD->CreateStore(negVal, func->getRegister("RR", instr.ops[0]));
 }

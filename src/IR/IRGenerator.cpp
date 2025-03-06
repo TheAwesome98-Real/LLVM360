@@ -136,6 +136,12 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"cmpw", cmpw_e},
          {"bc", bcx_e},
          {"add", add_e},
+         {"ori", ori_e},
+         {"cmpwi", cmpwi_e},
+         {"neg", neg_e},
+         {"and", and_e},
+         {"xor", xor_e},
+         {"rlwinmRC", rlwinmRC_e},
     };
 
 

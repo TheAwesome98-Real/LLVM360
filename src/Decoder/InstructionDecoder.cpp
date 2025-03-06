@@ -451,8 +451,8 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t *stride, Instructio
     case 11: {
         uint32_t l = ibf->GetAt(10, 1);
         if (!l)
-            INST("cmpwi", b6_3, b11_5, b16_16)
-            INST("cmpdi", b6_3, b11_5, b16_16)
+            INST("cmpwi", b6_3, b10_1, b11_5, b16_16)
+            INST("cmpdi", b6_3, b10_1, b11_5, b16_16)
     }
     case 12:
         INST("addic", S, b11_5, b16_16); // addic rD,rA,SIMM
