@@ -71,3 +71,10 @@ inline void unit_bclr(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
 	instr.ops = ops;
 	bclr_e(instr, func);
 }
+
+inline void unit_srawi(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	srawi_e(instr, func);
+}

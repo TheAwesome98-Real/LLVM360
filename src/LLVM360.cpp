@@ -70,9 +70,10 @@ void unitTest(IRGenerator* gen)
     // code
     //
 
-	unit_li(func, gen, {3, 0, 0x32});
+	unit_li(func, gen, {4, 0, (uint32_t) -1});
+    unit_srawi(func, gen, { 3, 4, 0x1 });
     unit_bclr(func, gen, {});
-
+    
 
     //
     // DUMP

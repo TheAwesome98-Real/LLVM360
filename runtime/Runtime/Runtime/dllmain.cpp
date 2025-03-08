@@ -101,8 +101,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
     case DLL_PROCESS_DETACH:
     {
         
-        printf("LR: %016llX\n", mainThreadState->LR);
-        printf("CR: %08llX\n", mainThreadState->CR);
+        printf("LR:  %016llX\n", mainThreadState->LR);
+        printf("CR:  %08llX\n", mainThreadState->CR);
+        printf("XER: %08llX\n", mainThreadState->XER);
 
         printf("\n--- RR ---\n");
         for (size_t i = 0; i < 32; i++)

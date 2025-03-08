@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "IRGenerator.h"
 #include "IRFunc.h"
 
@@ -18,6 +18,8 @@
 #define i16_T BUILD->getInt16Ty()
 #define i1_T BUILD->getInt1Ty()
 
+#define trcTo1(x) BUILD->CreateTrunc(x, BUILD->getInt1Ty(), "trc1")
+#define trcTo8(x) BUILD->CreateTrunc(x, BUILD->getInt8Ty(), "trc8")
 #define trcTo16(x) BUILD->CreateTrunc(x, BUILD->getInt16Ty(), "trc16")
 #define trcTo32(x) BUILD->CreateTrunc(x, BUILD->getInt32Ty(), "trc32")
 #define trcTo64(x) BUILD->CreateTrunc(x, BUILD->getInt64Ty(), "trc64")
@@ -25,6 +27,9 @@
 // register value access / store
 #define gprVal(x) BUILD->CreateLoad(BUILD->getInt64Ty(), func->getRegister("RR", x), "rrV")
 #define crVal() BUILD->CreateLoad(BUILD->getInt32Ty(), func->getRegister("CR"), "crV")
+#define xerVal() BUILD->CreateLoad(BUILD->getInt32Ty(), func->getRegister("XER"), "xerV")
+
+
 // ext
 #define sExt64(x) BUILD->CreateSExt(x, BUILD->getInt64Ty(), "sEx64")
 #define sExt32(x) BUILD->CreateSExt(x, BUILD->getInt32Ty(), "sEx32")
@@ -35,6 +40,29 @@
 #define sign64(x)  llvm::ConstantInt::getSigned(i32_T, x)
 #define sign32(x)  llvm::ConstantInt::getSigned(i64_T, x)
 #define sign16(x)  llvm::ConstantInt::getSigned(i16_T, x)
+
+
+
+
+inline void StoreCA(IRFunc* func, llvm::Value* ca)
+{
+    BUILD->CreateStore(BUILD->CreateOr(xerVal(), BUILD->CreateShl(zExt32(ca), 2, "shl")), func->getRegister("XER"));
+}
+
+static inline uint64_t XEMASK(uint32_t mstart, uint32_t mstop) {
+    // if mstart ≤ mstop then
+    //   mask[mstart:mstop] = ones
+    //   mask[all other bits] = zeros
+    // else
+    //   mask[mstart:63] = ones
+    //   mask[0:mstop] = ones
+    //   mask[all other bits] = zeros
+    mstart &= 0x3F;
+    mstop &= 0x3F;
+    uint64_t value =
+        (UINT64_MAX >> mstart) ^ ((mstop >= 63) ? 0 : UINT64_MAX >> (mstop + 1));
+    return mstart <= mstop ? value : ~value;
+}
 
 inline uint32_t signExtend(uint32_t value, int size)
 {
@@ -52,13 +80,13 @@ inline llvm::Value* getBOOperation(IRFunc* func, Instruction instr, llvm::Value*
 {
     llvm::Value* should_branch{};
 
-    /*0000y Decrement the CTR, then branch if the decremented CTR[M�63] is not 0 and the condition is FALSE.
-      0001y Decrement the CTR, then branch if the decremented CTR[M�63] = 0 and the condition is FALSE.
+    /*0000y Decrement the CTR, then branch if the decremented CTR[M–63] is not 0 and the condition is FALSE.
+      0001y Decrement the CTR, then branch if the decremented CTR[M–63] = 0 and the condition is FALSE.
       001zy Branch if the condition is FALSE.
-      0100y Decrement the CTR, then branch if the decremented CTR[M�63] is not 0 and the condition is TRUE.
-      0101y Decrement the CTR, then branch if the decremented CTR[M�63] = 0 and the condition is TRUE.
+      0100y Decrement the CTR, then branch if the decremented CTR[M–63] is not 0 and the condition is TRUE.
+      0101y Decrement the CTR, then branch if the decremented CTR[M–63] = 0 and the condition is TRUE.
       011zy Branch if the condition is TRUE.
-      1z00y Decrement the CTR, then branch if the decremented CTR[M�63] is not 0.*/
+      1z00y Decrement the CTR, then branch if the decremented CTR[M–63] is not 0.*/
 
 
       // NOTE, remember to cast "bools" with int1Ty, cause if i do CreateNot with an 32 bit value it will mess up the cmp result
@@ -473,74 +501,51 @@ inline void rlwinm_e(Instruction instr, IRFunc* func)
     }
 }
 
-#define BMSK(w, i) (((u64)(1)) << ((w) - (i) - (1)))
-
-#define BGET(dw, w, i) (((dw) & BMSK(w, i)) ? 1 : 0)
-#define QMASK(b, e) ((0xFFFFFFFFFFFFFFFF << ((63 + (b)) - (e))) >> (b))
-
-
-// fix this shis
-inline void srawi_e(Instruction instr, IRFunc* func)
+inline void srawi_e(Instruction instr, IRFunc* func) 
 {
-    BUILD->CreateStore(gprVal(instr.ops[0]), func->getRegister("RR", 31));
+    // n <- SH
+    // r <- ROTL32((RS)[32:63], 64-n)
+    // m <- MASK(n+32, 63)
+    // s <- (RS)[32]
+    // RA <- r&m | (i64.s)&¬m
+    // CA <- s & ((r&¬m)[32:63]≠0)
+    // if n == 0: rA <- sign_extend(rS), XER[CA] = 0
+    // if n >= 32: rA <- 64 sign bits of rS, XER[CA] = sign bit of lo_32(rS)
+   
 
-    // Extract the low 32 bits of rS as X.
-    llvm::Value* X = BUILD->CreateTrunc(gprVal(instr.ops[1]), BUILD->getInt32Ty(), "X");
+    llvm::Value* v = trcTo32(gprVal(instr.ops[1]));
+    llvm::Value* ca;
+    if (!instr.ops[2]) // if shift is 0 don't calculate the other shis
+    {
+        // No shift, just a fancy sign extend and CA clearer.
+        v = sExt64(v);
+        ca = BUILD->getInt8(0);
+    }
+    else 
+    {
+        // CA is set if any bits are shifted out of the right and if the result
+        // is negative.
+        uint32_t mask = (uint32_t)XEMASK(64 - instr.ops[2], 63);
 
-    // Compute the sign bit S = (X >> 31) & 1.
-    llvm::Value* S = BUILD->CreateAShr(X, BUILD->getInt32(31), "S"); // arithmetic shift
-    S = BUILD->CreateTrunc(S, BUILD->getInt1Ty(), "S_bit");    // now S is an i1
+        if (mask == 1) 
+        {
+            ca = BUILD->CreateAnd(BUILD->CreateICmpSLT(v, i32Const(0), "slt"), trcTo1(v), "and");
+        }
+        else {
+            ca = BUILD->CreateAnd(BUILD->CreateICmpSLT(v, i32Const(0)),
+                BUILD->CreateICmpNE(BUILD->CreateAnd(v, i32Const(mask), "and"), BUILD->getFalse()));
+        }
 
-    // Let n = SH.
-    // Compute (32 - n). Note: We must ensure n is in range; assume SH is 0..31.
-    llvm::Value* const32 = BUILD->getInt32(32);
-    llvm::Value* n32 = i32Const(instr.ops[2]);
-    llvm::Value* rotAmount = BUILD->CreateSub(const32, n32, "rotAmount"); // rotAmount = 32 - n
+        //v = f.Sha(v, (int8_t)instr.ops[2]), v = sExt64(v);
+        v = BUILD->CreateAShr(v, i32Const(instr.ops[2]), "ashr"), v = sExt64(v);
+    }
 
-    // Compute the 32-bit rotate left on X by rotAmount.
-    // A rotate left by k bits is: (X << k) | (X >> (32 - k)).
-    // Here, we want: r = ROTL32(X, 32 - n) which is equivalent to a right shift by n bits,
-    // but we compute it via a rotate.
-    llvm::Value* shl_part = BUILD->CreateShl(X, rotAmount, "shl_part");
-    llvm::Value* lshr_part = BUILD->CreateLShr(X, n32, "lshr_part");
-    llvm::Value* r32 = BUILD->CreateOr(shl_part, lshr_part, "rotated32");
+    StoreCA(func, ca);
 
-    // Extend the rotated result to 64 bits (zero-extend).
-    llvm::Value* r = BUILD->CreateZExt(r32, BUILD->getInt64Ty(), "r64");
-
-    // Now, create the 64-bit mask m = MASK(n + 32, 63).
-    // In a 64-bit value, bits 32..63 correspond to the low-order 32 bits.
-    // We want a mask with ones from bit (n+32) to bit 63.
-    // Let k = 32 - n. Then number of ones = k.
-    // Compute: m = ((1 << (32 - n)) - 1) << (n + 32).
-    llvm::Value* k = BUILD->CreateSub(const32, n32, "k"); // k = 32 - n
-    // Compute (1 << k)
-    llvm::Value* one64 = BUILD->getInt64(1);
-    llvm::Value* shifted = BUILD->CreateShl(one64, zExt64(k), "one_shl_k");
-    // Compute (1 << k) - 1
-    llvm::Value* maskPart = BUILD->CreateSub(shifted, BUILD->getInt64(1), "maskPart");
-    // Now shift left by (n + 32)
-    llvm::Value* nPlus32 = BUILD->CreateAdd(zExt64(n32), BUILD->getInt64(32), "nPlus32");
-    llvm::Value* m_mask = BUILD->CreateShl(maskPart, nPlus32, "m_mask");
-
-    // Now compute the sign-extension part.
-    // The documentation says: (64)S is S replicated to fill the high 32 bits.
-    // If S is true (i.e. 1), then (64)S = 0xFFFFFFFF00000000; if false, it's 0.
-    // We can compute this with a select.
-    llvm::Value* highConst = BUILD->getInt64(0xFFFFFFFF00000000ULL);
-    llvm::Value* zero64 = BUILD->getInt64(0);
-    llvm::Value* signExt = BUILD->CreateSelect(S, highConst, zero64, "signExt");
-
-    // Finally, compute rA = (r & m_mask) | (signExt & (~m_mask))
-    llvm::Value* notMask = BUILD->CreateNot(m_mask, "notMask");
-    llvm::Value* part1 = BUILD->CreateAnd(r, m_mask, "part1");
-    llvm::Value* part2 = BUILD->CreateAnd(signExt, notMask, "part2");
-    llvm::Value* rA = BUILD->CreateOr(part1, part2, "rA");
-
-    BUILD->CreateStore(rA, func->getRegister("RR", instr.ops[0]));
-
-    BUILD->CreateStore(gprVal(instr.ops[0]), func->getRegister("RR", 30));
-
+    BUILD->CreateStore(v, func->getRegister("RR", instr.ops[0]));
+    /*if (i.X.Rc) {
+        f.UpdateCR(0, v);
+    }*/
 }
 
 
