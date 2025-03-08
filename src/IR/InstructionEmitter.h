@@ -37,8 +37,8 @@
 #define zExt64(x) BUILD->CreateZExt(x, BUILD->getInt64Ty(), "zEx64")
 #define zExt32(x) BUILD->CreateZExt(x, BUILD->getInt32Ty(), "zEx32")
 
-#define sign64(x)  llvm::ConstantInt::getSigned(i32_T, x)
-#define sign32(x)  llvm::ConstantInt::getSigned(i64_T, x)
+#define sign64(x)  llvm::ConstantInt::getSigned(i64_T, x)
+#define sign32(x)  llvm::ConstantInt::getSigned(i32_T, x)
 #define sign16(x)  llvm::ConstantInt::getSigned(i16_T, x)
 
 
@@ -187,9 +187,9 @@ inline llvm::Value* updateCRWithValue(IRFunc* func, llvm::Value* result, llvm::V
 
     // build cr0 field 
     llvm::Value* crField = BUILD->CreateOr(
-        BUILD->CreateOr(ltBit, BUILD->CreateShl(gtBit, 1)),
-        BUILD->CreateOr(BUILD->CreateShl(eqBit, 2),
-            BUILD->CreateShl(i32Const(0), 3)), // so BIT TODO
+        BUILD->CreateOr(ltBit, BUILD->CreateShl(gtBit, 1, "shl"), "or"),
+        BUILD->CreateOr(BUILD->CreateShl(eqBit, 2, "shl"),
+            BUILD->CreateShl(i32Const(0), 3, "shl"), "or"), // so BIT TODO
         "crField"
     );
 
@@ -218,11 +218,17 @@ inline llvm::Value* updateCRWithZero(IRFunc* func, llvm::Value* result)
     return crField;
 }
 
-inline llvm::Value* getEA(IRFunc* func, uint32_t displ, uint32_t gpr)
+inline llvm::Value* getEA_displ(IRFunc* func, uint32_t displ, uint32_t gpr)
 {
     llvm::Value* extendedDisplacement = sExt64(llvm::ConstantInt::get(i32_T, llvm::APInt(16, displ, true)));
     llvm::Value* regValue = gprVal(gpr);
     llvm::Value* ea = BUILD->CreateAdd(regValue, extendedDisplacement, "ea");
+    return BUILD->CreateIntToPtr(ea, i32_T->getPointerTo(), "addrPtr");
+}
+
+inline llvm::Value* getEA_regs(IRFunc* func, uint32_t gpr1, uint32_t gpr2)
+{
+    llvm::Value* ea = BUILD->CreateAdd(gprVal(gpr1), gprVal(gpr2), "ea");
     return BUILD->CreateIntToPtr(ea, i32_T->getPointerTo(), "addrPtr");
 }
 
@@ -301,24 +307,31 @@ inline void bclr_e(Instruction instr, IRFunc* func)
 inline void stfd_e(Instruction instr, IRFunc* func)
 {
     auto frValue = BUILD->CreateLoad(BUILD->getDoubleTy(), func->getRegister("FR", instr.ops[0]), "load_fr");
-    BUILD->CreateStore(frValue, getEA(func, instr.ops[1], instr.ops[2])); // address needs to be a pointer (pointer to an address in memory)
+    BUILD->CreateStore(frValue, getEA_displ(func, instr.ops[1], instr.ops[2])); // address needs to be a pointer (pointer to an address in memory)
 }
 
 inline void stw_e(Instruction instr, IRFunc* func)
 {
 	// truncate the value to 32 bits
     auto rrValue32 = trcTo32(gprVal(instr.ops[0]));
-    BUILD->CreateStore(rrValue32, getEA(func, instr.ops[1], instr.ops[2]));
+    BUILD->CreateStore(rrValue32, getEA_displ(func, instr.ops[1], instr.ops[2]));
 }
 
 // store word with update, update means that the address register is updated with the new address
 // so rA = rA + displacement after the store
 inline void stwu_e(Instruction instr, IRFunc* func)
 {
-	llvm::Value* eaVal = getEA(func, instr.ops[1], instr.ops[2]);
+	llvm::Value* eaVal = getEA_displ(func, instr.ops[1], instr.ops[2]);
     auto rrValue32 = trcTo32(gprVal(instr.ops[0]));
     BUILD->CreateStore(rrValue32, eaVal);
 	BUILD->CreateStore(eaVal, func->getRegister("RR", instr.ops[2])); // update rA
+}
+
+
+inline void stwx_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* ea = getEA_regs(func, instr.ops[1], instr.ops[2]);
+    BUILD->CreateStore(trcTo32(gprVal(instr.ops[0])), ea);
 }
 
 inline void addi_e(Instruction instr, IRFunc* func)
@@ -380,20 +393,18 @@ inline void bcx_e(Instruction instr, IRFunc* func)
 
 inline void cmpli_e(Instruction instr, IRFunc* func)
 {
-    printf("------------- FIXXXXX ---------\n");
     llvm::Value* a;
     if(instr.ops[1] = 0)
     {
-        llvm::Value* low32Bits = BUILD->CreateTrunc(func->getRegister("RR", instr.ops[2]), llvm::Type::getInt32Ty(func->m_irGen->m_module->getContext()), "low32");
-        a = BUILD->CreateZExt(low32Bits, BUILD->getInt64Ty(), "ext");
+        llvm::Value* low32Bits = trcTo32(gprVal(instr.ops[2]));
+        a = zExt64(low32Bits);
     } 
     else
     {
-        a = func->getRegister("RR", instr.ops[2]);
+        a = gprVal(instr.ops[2]);
     }
 
-    llvm::Value* imm = zExt64(i32Const(instr.ops[3]));
-    setCRField(func, instr.ops[0], updateCRWithValue(func, imm, a));
+    setCRField(func, instr.ops[0], updateCRWithValue(func, i64Const(instr.ops[3]), a));
 }
 
 
@@ -443,14 +454,13 @@ inline void lwz_e(Instruction instr, IRFunc* func)
 {
     // EA is the sum(rA | 0) + d.The word in memory addressed by EA is loaded into the low - order 32 bits of rD.The
     // high - order 32 bits of rD are cleared.
-    llvm::Value* loadedValue = BUILD->CreateLoad(i32_T, getEA(func, instr.ops[1], instr.ops[2]), "loaded_value");
+    llvm::Value* loadedValue = BUILD->CreateLoad(i32_T, getEA_displ(func, instr.ops[1], instr.ops[2]), "loaded_value");
     BUILD->CreateStore(zExt64(loadedValue), func->getRegister("RR", instr.ops[0]));
 }
 
 inline void lwzx_e(Instruction instr, IRFunc* func)
 {
-    llvm::Value* ea = BUILD->CreateAdd(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "ea");
-    llvm::Value* loadedValue = BUILD->CreateLoad(i32_T, BUILD->CreateIntToPtr(ea, i32_T->getPointerTo(), "addrPtr"), "loaded_value");
+    llvm::Value* loadedValue = BUILD->CreateLoad(i32_T, getEA_regs(func, instr.ops[1], instr.ops[2]), "ld");
     BUILD->CreateStore(zExt64(loadedValue), func->getRegister("RR", instr.ops[0]));
 }
 
@@ -459,7 +469,7 @@ inline void lhz_e(Instruction instr, IRFunc* func)
 {
     //EA is the sum(rA | 0) + d.The half word in memory addressed by EA is loaded into the low - order 16 bits of rD.
     //The remaining bits in rD are cleared.
-	llvm::Value* ea_val = BUILD->CreateLoad(i16_T, getEA(func, instr.ops[1], instr.ops[2]), "eaV");
+	llvm::Value* ea_val = BUILD->CreateLoad(i16_T, getEA_displ(func, instr.ops[1], instr.ops[2]), "eaV");
     BUILD->CreateStore(zExt64(trcTo16(ea_val)), func->getRegister("RR", instr.ops[0]));
 }
 
@@ -469,7 +479,7 @@ inline void sth_e(Instruction instr, IRFunc* func)
     //EA is the sum (rA|0) + d. The contents of the low-order 16 bits of rS are stored into the half word in memory
     //addressed by EA.
     llvm::Value* low16 = trcTo16(gprVal(instr.ops[0]));
-    BUILD->CreateStore(low16, getEA(func, instr.ops[1], instr.ops[2]));
+    BUILD->CreateStore(low16, getEA_displ(func, instr.ops[1], instr.ops[2]));
 }
 
 #define DMASK(b, e) (((0xFFFFFFFF << ((31 + (b)) - (e))) >> (b)))
@@ -573,6 +583,12 @@ inline void and_e(Instruction instr, IRFunc* func)
     BUILD->CreateStore(andResult, func->getRegister("RR", instr.ops[0]));
 }
 
+inline void andc_e(Instruction instr, IRFunc* func)
+{
+    auto andResult = BUILD->CreateAnd(gprVal(instr.ops[1]), BUILD->CreateNot(gprVal(instr.ops[2]), "not"), "and");
+    BUILD->CreateStore(andResult, func->getRegister("RR", instr.ops[0]));
+}
+
 inline void xor_e(Instruction instr, IRFunc* func)
 {
     auto xorResult = BUILD->CreateXor(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "xor");
@@ -590,6 +606,8 @@ inline void neg_e(Instruction instr, IRFunc* func)
     BUILD->CreateStore(negVal, func->getRegister("RR", instr.ops[0]));
 }
 
+
+
 //
 //// MATH
 //
@@ -598,4 +616,42 @@ inline void mullw_e(Instruction instr, IRFunc* func)
 {
     auto mulResult = trcTo32(BUILD->CreateMul(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "Mul"));
     BUILD->CreateStore(mulResult, func->getRegister("RR", instr.ops[0]));
+}
+
+inline void mulli_e(Instruction instr, IRFunc* func)
+{
+    auto mulResult = BUILD->CreateMul(gprVal(instr.ops[1]), sign64(instr.ops[2]), "Mul");
+    BUILD->CreateStore(mulResult, func->getRegister("RR", instr.ops[0]));
+}
+
+
+inline void divwx_e(Instruction instr, IRFunc* func) 
+{
+    llvm::Value* divisor = trcTo32(gprVal(instr.ops[2]));
+    llvm::Value* v = BUILD->CreateSDiv(trcTo32(gprVal(instr.ops[1])), divisor, "div");
+    v = zExt64(v);
+    BUILD->CreateStore(v, func->getRegister("RR", instr.ops[0]));
+    /*if (i.XO.Rc) {
+        f.UpdateCR(0, v);
+    }*/
+}
+
+inline void subf_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* v = BUILD->CreateSub(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "sub");
+    BUILD->CreateStore(v, func->getRegister("RR", instr.ops[0]));
+    
+    // RC
+    if (strcmp(instr.opcName.c_str(), "subfRC") == 0)
+    {
+
+        llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(v, i64Const(0), "lt"));
+        llvm::Value* GT = zExt32(BUILD->CreateICmpSGT(v, i64Const(0), "gt"));
+        llvm::Value* EQ = zExt32(BUILD->CreateICmpEQ(v, i64Const(0), "eq"));
+        // TODO
+        llvm::Value* SO_bit = i32Const(0);
+        llvm::Value* field = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
+
+        setCRField(func, 0, field);
+    }
 }

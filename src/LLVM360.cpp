@@ -18,7 +18,7 @@
 bool printINST = true;
 bool printFile = false;  // Set this flag to true or false based on your preference
 bool genLLVMIR = true;
-bool isUnitTesting = true;
+bool isUnitTesting = false;
 bool doOverride = false; // if it should override the endAddress to debug
 uint32_t overAddr = 0x82060150;
 

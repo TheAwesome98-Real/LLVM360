@@ -108,12 +108,12 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
     }
     oss << " ------";
     DEBUG_COMMENT(oss.str().c_str())
-   
 
 
-    // <name>_e = <name>_emitter
-    static std::unordered_map<std::string, std::function<void(Instruction, IRFunc*)>>
-    instructionMap = 
+
+        // <name>_e = <name>_emitter
+        static std::unordered_map<std::string, std::function<void(Instruction, IRFunc*)>>
+        instructionMap =
     {
          {"nop", nop_e },
          {"twi", twi_e },
@@ -146,6 +146,13 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"rlwinm", rlwinm_e},
          {"mullw", mullw_e},
          {"srawi", srawi_e},
+         {"divw", divwx_e},
+         {"andc", andc_e},
+         {"subf", subf_e},
+         {"subfRC", subf_e},
+         {"stwx", stwx_e},
+         {"cmplwi", cmpli_e},
+         {"mulli", mulli_e},
     };
 
 
