@@ -419,6 +419,13 @@ inline void lwz_e(Instruction instr, IRFunc* func)
     BUILD->CreateStore(zExt64(loadedValue), func->getRegister("RR", instr.ops[0]));
 }
 
+inline void lwzx_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* ea = BUILD->CreateAdd(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "ea");
+    llvm::Value* loadedValue = BUILD->CreateLoad(i32_T, BUILD->CreateIntToPtr(ea, i32_T->getPointerTo(), "addrPtr"), "loaded_value");
+    BUILD->CreateStore(zExt64(loadedValue), func->getRegister("RR", instr.ops[0]));
+}
+
 // could be better
 inline void lhz_e(Instruction instr, IRFunc* func)
 {
@@ -439,7 +446,7 @@ inline void sth_e(Instruction instr, IRFunc* func)
 
 #define DMASK(b, e) (((0xFFFFFFFF << ((31 + (b)) - (e))) >> (b)))
 // please optimize this
-inline void rlwinmRC_e(Instruction instr, IRFunc* func)
+inline void rlwinm_e(Instruction instr, IRFunc* func)
 {
     uint32_t mask = (instr.ops[3] <= instr.ops[4]) ? (DMASK(instr.ops[3], instr.ops[4])) : (DMASK(0, instr.ops[4]) | DMASK(3, 31));
 
@@ -448,21 +455,93 @@ inline void rlwinmRC_e(Instruction instr, IRFunc* func)
     llvm::Value* rhs = BUILD->CreateLShr(gprVal(instr.ops[1]), width, "rhs");
     llvm::Value* rotl = BUILD->CreateOr(lhs, rhs, "rotl");
     
-    auto masked = trcTo32(BUILD->CreateAnd(rotl, i64Const(mask)));
+    auto masked = trcTo32(BUILD->CreateAnd(rotl, i64Const(mask), "and"));
     BUILD->CreateStore(zExt64(masked), func->getRegister("RR", instr.ops[0]));
     
     // RC
-    llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(masked, i32Const(0), "lt"));
-    llvm::Value* GT = zExt32(BUILD->CreateICmpSGT(masked, i32Const(0), "gt"));
-    llvm::Value* EQ = zExt32(BUILD->CreateICmpEQ(masked, i32Const(0), "eq"));
-    // TODO
-    llvm::Value* SO_bit = i32Const(0);
-    llvm::Value* field = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
+    if(strcmp(instr.opcName.c_str(), "rlwinmRC") == 0)
+    {
+        
+        llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(masked, i32Const(0), "lt"));
+        llvm::Value* GT = zExt32(BUILD->CreateICmpSGT(masked, i32Const(0), "gt"));
+        llvm::Value* EQ = zExt32(BUILD->CreateICmpEQ(masked, i32Const(0), "eq"));
+        // TODO
+        llvm::Value* SO_bit = i32Const(0);
+        llvm::Value* field = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
 
-
-    setCRField(func, 0, field);
+        setCRField(func, 0, field);
+    }
 }
 
+#define BMSK(w, i) (((u64)(1)) << ((w) - (i) - (1)))
+
+#define BGET(dw, w, i) (((dw) & BMSK(w, i)) ? 1 : 0)
+#define QMASK(b, e) ((0xFFFFFFFFFFFFFFFF << ((63 + (b)) - (e))) >> (b))
+
+
+// fix this shis
+inline void srawi_e(Instruction instr, IRFunc* func)
+{
+    BUILD->CreateStore(gprVal(instr.ops[0]), func->getRegister("RR", 31));
+
+    // Extract the low 32 bits of rS as X.
+    llvm::Value* X = BUILD->CreateTrunc(gprVal(instr.ops[1]), BUILD->getInt32Ty(), "X");
+
+    // Compute the sign bit S = (X >> 31) & 1.
+    llvm::Value* S = BUILD->CreateAShr(X, BUILD->getInt32(31), "S"); // arithmetic shift
+    S = BUILD->CreateTrunc(S, BUILD->getInt1Ty(), "S_bit");    // now S is an i1
+
+    // Let n = SH.
+    // Compute (32 - n). Note: We must ensure n is in range; assume SH is 0..31.
+    llvm::Value* const32 = BUILD->getInt32(32);
+    llvm::Value* n32 = i32Const(instr.ops[2]);
+    llvm::Value* rotAmount = BUILD->CreateSub(const32, n32, "rotAmount"); // rotAmount = 32 - n
+
+    // Compute the 32-bit rotate left on X by rotAmount.
+    // A rotate left by k bits is: (X << k) | (X >> (32 - k)).
+    // Here, we want: r = ROTL32(X, 32 - n) which is equivalent to a right shift by n bits,
+    // but we compute it via a rotate.
+    llvm::Value* shl_part = BUILD->CreateShl(X, rotAmount, "shl_part");
+    llvm::Value* lshr_part = BUILD->CreateLShr(X, n32, "lshr_part");
+    llvm::Value* r32 = BUILD->CreateOr(shl_part, lshr_part, "rotated32");
+
+    // Extend the rotated result to 64 bits (zero-extend).
+    llvm::Value* r = BUILD->CreateZExt(r32, BUILD->getInt64Ty(), "r64");
+
+    // Now, create the 64-bit mask m = MASK(n + 32, 63).
+    // In a 64-bit value, bits 32..63 correspond to the low-order 32 bits.
+    // We want a mask with ones from bit (n+32) to bit 63.
+    // Let k = 32 - n. Then number of ones = k.
+    // Compute: m = ((1 << (32 - n)) - 1) << (n + 32).
+    llvm::Value* k = BUILD->CreateSub(const32, n32, "k"); // k = 32 - n
+    // Compute (1 << k)
+    llvm::Value* one64 = BUILD->getInt64(1);
+    llvm::Value* shifted = BUILD->CreateShl(one64, zExt64(k), "one_shl_k");
+    // Compute (1 << k) - 1
+    llvm::Value* maskPart = BUILD->CreateSub(shifted, BUILD->getInt64(1), "maskPart");
+    // Now shift left by (n + 32)
+    llvm::Value* nPlus32 = BUILD->CreateAdd(zExt64(n32), BUILD->getInt64(32), "nPlus32");
+    llvm::Value* m_mask = BUILD->CreateShl(maskPart, nPlus32, "m_mask");
+
+    // Now compute the sign-extension part.
+    // The documentation says: (64)S is S replicated to fill the high 32 bits.
+    // If S is true (i.e. 1), then (64)S = 0xFFFFFFFF00000000; if false, it's 0.
+    // We can compute this with a select.
+    llvm::Value* highConst = BUILD->getInt64(0xFFFFFFFF00000000ULL);
+    llvm::Value* zero64 = BUILD->getInt64(0);
+    llvm::Value* signExt = BUILD->CreateSelect(S, highConst, zero64, "signExt");
+
+    // Finally, compute rA = (r & m_mask) | (signExt & (~m_mask))
+    llvm::Value* notMask = BUILD->CreateNot(m_mask, "notMask");
+    llvm::Value* part1 = BUILD->CreateAnd(r, m_mask, "part1");
+    llvm::Value* part2 = BUILD->CreateAnd(signExt, notMask, "part2");
+    llvm::Value* rA = BUILD->CreateOr(part1, part2, "rA");
+
+    BUILD->CreateStore(rA, func->getRegister("RR", instr.ops[0]));
+
+    BUILD->CreateStore(gprVal(instr.ops[0]), func->getRegister("RR", 30));
+
+}
 
 
 //
@@ -504,4 +583,14 @@ inline void neg_e(Instruction instr, IRFunc* func)
     //llvm::Value* isOverflow = BUILD->CreateICmpEQ(rA, minInt, "overflow_check");
     //llvm::Value* OV = BUILD->CreateSelect(OE, isOverflow, Builder.getInt1(false), "OV_flag");
     BUILD->CreateStore(negVal, func->getRegister("RR", instr.ops[0]));
+}
+
+//
+//// MATH
+//
+
+inline void mullw_e(Instruction instr, IRFunc* func)
+{
+    auto mulResult = trcTo32(BUILD->CreateMul(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "Mul"));
+    BUILD->CreateStore(mulResult, func->getRegister("RR", instr.ops[0]));
 }

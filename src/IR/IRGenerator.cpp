@@ -125,6 +125,7 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"li", addi_e },
          {"addi", addi_e },
          {"lwz", lwz_e },
+         {"lwzx", lwzx_e},
          {"mtspr", mtspr_e },
          {"or", orx_e },
          {"sth", sth_e },
@@ -141,7 +142,10 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"neg", neg_e},
          {"and", and_e},
          {"xor", xor_e},
-         {"rlwinmRC", rlwinmRC_e},
+         {"rlwinmRC", rlwinm_e},
+         {"rlwinm", rlwinm_e},
+         {"mullw", mullw_e},
+         {"srawi", srawi_e},
     };
 
 

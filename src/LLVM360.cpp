@@ -18,7 +18,7 @@
 bool printINST = true;
 bool printFile = false;  // Set this flag to true or false based on your preference
 bool genLLVMIR = true;
-bool isUnitTesting = false;
+bool isUnitTesting = true;
 bool doOverride = false; // if it should override the endAddress to debug
 uint32_t overAddr = 0x82060150;
 
@@ -62,22 +62,18 @@ void saveSection(const char* path, uint32_t idx)
 
 void unitTest(IRGenerator* gen)
 {
-	IRFunc* testFunc = gen->getCreateFuncInMap(loadedXex->GetEntryAddress());
-    testFunc->genBody();
-    gen->m_builder->SetInsertPoint(testFunc->codeBlocks.at(testFunc->start_address)->bb_Block);
-    //unit_mfspr(testFunc, gen);
-    //unit_stfd(gen);
-    //unit_stwu(gen);
-    //unit_lwz(gen);
-	unit_li(testFunc, gen);
-    unit_stw(testFunc, gen);
-    unit_lwz(testFunc, gen);
-    //unit_stwu(testFunc, gen);
-    
-    
-	//unit_cmpw(testFunc, gen);
+	IRFunc* func = gen->getCreateFuncInMap(loadedXex->GetEntryAddress());
+    func->genBody();
+    gen->m_builder->SetInsertPoint(func->codeBlocks.at(func->start_address)->bb_Block);
 
-	gen->m_builder->CreateRetVoid();
+    //
+    // code
+    //
+
+	unit_li(func, gen, {3, 0, 0x32});
+    unit_bclr(func, gen, {});
+
+
     //
     // DUMP
     //
