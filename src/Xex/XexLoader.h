@@ -4,48 +4,38 @@
 
 class Section;
 class XexImage;
-/*
 
 
-void Section::Save(IBinaryFileWriter& writer) const
+
+enum ImportType {
+    FUNCTION = 0,
+    VARIABLE = 1
+};
+
+enum XboxLibrary {
+    XboxKrnl = 0,
+    Xam = 1,
+    xbdm = 2,
+    Xapi = 3,
+};
+
+class Import
 {
-        FileChunk chunk(writer, "Section");
-        writer << m_name;
-        writer << m_virtualOffset;
-        writer << m_virtualSize;
-        writer << m_physicalOffset;
-        writer << m_physicalSize;
-        writer << m_isReadable;
-        writer << m_isWritable;
-        writer << m_isExecutable;
-        writer << m_cpuName;
-}
+public:
+    Import(XboxLibrary _lib,
+    ImportType _type,
+    std::string _name,
+    uint32_t _ordinal) : lib(_lib), type(_type), name(_name), ordinal(_ordinal)
+    {
+    
+    }
 
-bool Section::Load(Binary* image, IBinaryFileReader& reader)
-{
-        FileChunk chunk(reader, "Section");
-        if (!chunk)
-                return false;
+    XboxLibrary lib;
+    ImportType type;
+    std::string name;
+    uint32_t ordinal;
+};
 
-        reader >> m_name;
-        reader >> m_virtualOffset;
-        reader >> m_virtualSize;
-        reader >> m_physicalOffset;
-        reader >> m_physicalSize;
-        reader >> m_isReadable;
-        reader >> m_isWritable;
-        reader >> m_isExecutable;
-        reader >> m_cpuName;
-
-        m_image = image;
-        return true;
-}
-
-const bool Section::IsValidOffset(const uint32 offset) const
-{
-        return (offset >= m_virtualOffset) && (offset < (m_virtualOffset + m_virtualSize));
-}
-*/
 class Section {
 public:
   inline XexImage *GetImage() const {
@@ -144,6 +134,9 @@ public:
   bool LoadPEImage(const uint8_t *fileData, const uint32_t fileDataSize);
   Section *CreateSection(const COFFSection &section);
 
+  bool PatchImports();
+
+
   inline const std::wstring &GetPath() const {
     return m_path;
   }
@@ -201,10 +194,8 @@ private:
   uint64_t m_entryAddress;
 
   std::vector<Section *> m_sections;
-
-  /*typedef std::vector< Import* >		TImports;
-  TImports				m_imports;
-
+  std::vector<Import *> m_imports;
+  /*
   typedef std::vector< Export* >		TExports;
   TExports				m_exports;
 
