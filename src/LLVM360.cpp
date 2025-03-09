@@ -108,9 +108,146 @@ inline uint32_t recursiveNopCheck(uint32_t address)
 	}
 }
 
+void patchImportsFunctions()
+{
+    for (Import* import : loadedXex->m_imports)
+    {
+        if(import->type == FUNCTION)
+        {
+            IRFunc* func = g_irGen->getCreateFuncInMap(import->funcImportAddr);
+            func->end_address = func->start_address + 16;
+            llvm::FunctionType* importType = llvm::FunctionType::get(g_irGen->m_builder->getVoidTy(), { g_irGen->XenonStateType->getPointerTo(), g_irGen->m_builder->getInt32Ty() }, false);
+            llvm::Function* importFunc = llvm::Function::Create(importType, llvm::Function::ExternalLinkage,import->name.c_str(),g_irGen->m_module);
+            func->m_irFunc = importFunc;
+            func->emission_done = true;
+        }
+    }
+}
+
+//
+// this flow pass find every function prologue that are jumped from BL instructions
+//
+void flow_blJumps(uint32_t start, uint32_t end)
+{
+    while (start < end)
+    {
+        Instruction instr = g_irGen->instrsList.at(start);
+        if (strcmp(instr.opcName.c_str(), "bl") == 0)
+        {
+            uint32_t target = instr.address + signExtend(instr.ops[0], 24);
+            if (!g_irGen->isIRFuncinMap(target))
+            {
+                printf("{flow_blJumps} Found new start of function bounds at: %08X\n", target);
+                g_irGen->getCreateFuncInMap(target);
+            }
+        }
+
+        start += 4;
+    }
+}
+
+//
+// this flow pass search every prolouge with mfspr R12 LR 
+// and since i know that if it save the LR the epilogue will restore it with
+// mtspr (check epilogue passes) so i set a metadata flag
+//
+void flow_mfsprProl(uint32_t start, uint32_t end)
+{
+    while (start < end)
+    {
+        Instruction instr = g_irGen->instrsList.at(start);
+        if (instr.instrWord == 0x7d8802a6)              // mfspr r12, LR
+        {
+            if (!g_irGen->isIRFuncinMap(start))
+                printf("{flow_mfsprProl} Found new start of function bounds at: %08X\n", start);
+            IRFunc* func = g_irGen->getCreateFuncInMap(start);
+            func->startW_MFSPR_LR = true;
+        }
+
+        start += 4;
+    }
+}
+void flow_aftBclrProl(uint32_t start, uint32_t end)
+{
+    while (start < end)
+    {
+        Instruction instr = g_irGen->instrsList.at(start);
+        if (strcmp(instr.opcName.c_str(), "bclr") == 0)
+        {
+            if (!g_irGen->isIRFuncinMap(start + 4))
+            {
+                printf("{flow_aftBclrProl} Found new start of function bounds at: %08X\n", start + 4);
+                g_irGen->getCreateFuncInMap(start + 4);
+            }
+        }
+
+        start += 4;
+    }
+}
+
+
+void flow_mtsprEpil(uint32_t start, uint32_t end)
+{
+    for (const auto& pair : g_irGen->m_function_map)
+    {
+        IRFunc* func = pair.second;
+        if (func->startW_MFSPR_LR && func->end_address == 0)
+        {
+            start = func->start_address;
+            while (start < end)
+            {
+                Instruction instr = g_irGen->instrsList.at(start);
+                if (instr.instrWord == 0x7d8803a6)            // mtspr LR, r12
+                {
+
+                    // this account for cases where there's some LD instructions
+                    uint32_t off = start + 4;
+                    do
+                    {
+                        instr = g_irGen->instrsList.at(off);
+                        off += 4;
+                    } while (strcmp(instr.opcName.c_str(), "bclr") != 0);
+
+                    func->end_address = off - 4;
+                    printf("{flow_mtsprEpil} Found new end of function bounds at: %08X\n", func->end_address);
+                    break;
+                }
+
+                start += 4;
+            }
+        }
+    }
+}
+
+void flow_bclrEpil(uint32_t start, uint32_t end)
+{
+    for (const auto& pair : g_irGen->m_function_map)
+    {
+        IRFunc* func = pair.second;
+        if (func->end_address == 0)
+        {
+            start = func->start_address;
+            while (start < end)
+            {
+                Instruction instr = g_irGen->instrsList.at(start);
+                if (strcmp(instr.opcName.c_str(), "bclr") == 0)
+                {
+                    func->end_address = start;
+                    printf("{flow_bclrEpil} Found new end of function bounds at: %08X\n", func->end_address);
+                }
+
+                start += 4;
+            }
+        }
+    }
+}
+
 bool pass_Flow()
 {
     bool ret = true;
+
+    patchImportsFunctions();
+
 
     for (size_t i = 0; i < loadedXex->GetNumSections(); i++)
     {
@@ -133,43 +270,18 @@ bool pass_Flow()
         IRFunc* prevFunc = nullptr;
 		IRFunc* currentFunc = first;
 		
+        // prologue
+        printf("-- prologue search --\n");
+        flow_blJumps(address, endAddress);
+        flow_mfsprProl(address, endAddress);
+        flow_aftBclrProl(address, endAddress);
 
-        while (address < endAddress)
-        {
-			const char* name = g_irGen->instrsList.at(address).opcName.c_str();
-            if (strcmp(name, "bclr") == 0)
-            {
-				printf("Found end of function bounds at with BLR: %08X\n", address);
-				currentFunc->end_address = address;
-				prevFunc = currentFunc;
-				if (address + 4 != endAddress)
-				{
-                    currentFunc = g_irGen->getCreateFuncInMap(recursiveNopCheck(address + 4));
-				}
-				    
-            }
+        // epilogue
+        printf("\n-- epilogue search --\n");
+        flow_mtsprEpil(address, endAddress);
+        flow_bclrEpil(address, endAddress);
 
-            /*/ todo, more Heuristic because tail calls
-            ..
-            ..
-            B
-            NOP
-
-            also:
-            
-            ..
-            ..
-            B
-            MFSPR .., LR
-            
-            the edge cases i can just let it inline the rest, cause they should not be big ass functions
-            */
-           
-            address += 4; // always 4
-        }
     }
-
-    
 
     return ret;
 }
@@ -286,10 +398,11 @@ bool pass_Emit()
         for (const auto& pair : g_irGen->m_function_map) 
         {
             IRFunc* func = pair.second;
-            if (genLLVMIR)
+            if (genLLVMIR && !func->emission_done)
             {
 				g_irGen->initFuncBody(func);
 				ret = func->EmitFunction();
+                func->emission_done = true;
             }
         }
     }

@@ -15,6 +15,7 @@ class IRFunc {
 public:
     uint32_t start_address;
     uint32_t end_address;
+    bool emission_done;
     std::unordered_map<uint32_t, CodeBlock*> codeBlocks;
     llvm::Function* m_irFunc;
 
@@ -28,4 +29,10 @@ public:
     llvm::Value* getSPR(uint32_t n);
 
     IRGenerator* m_irGen;
+
+public:
+    //
+    // Metadata for bounds analyser
+    //
+    bool startW_MFSPR_LR;
 };

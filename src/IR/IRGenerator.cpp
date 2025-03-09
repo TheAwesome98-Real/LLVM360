@@ -216,6 +216,7 @@ IRFunc* IRGenerator::getCreateFuncInMap(uint32_t address)
     }
     IRFunc* func = new IRFunc();
 	func->start_address = address;
+    func->end_address = NULL;
 	func->m_irGen = this;
     m_function_map.try_emplace(address, func);
     return func;

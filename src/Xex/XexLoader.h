@@ -163,6 +163,7 @@ public:
   inline const uint32_t GetNumSections() const {
     return (uint32_t)m_sections.size();
   }
+
   inline const Section *GetSection(const uint32_t index) const {
     return m_sections[index];
   }
@@ -199,6 +200,7 @@ private:
   uint64_t m_entryAddress;
 
   std::vector<Section *> m_sections;
+public:
   std::vector<Import *> m_imports;
   /*
   typedef std::vector< Export* >		TExports;
