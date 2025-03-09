@@ -69,8 +69,6 @@ bool IRFunc::EmitFunction()
     idx = this->start_address;
     while (idx <= this->end_address)
     {
-        
-
 		if (isBBinMap(idx))
 		{
 			m_irGen->m_builder->SetInsertPoint(codeBlocks.at(idx)->bb_Block);
@@ -113,6 +111,7 @@ void IRFunc::genBody()
     llvm::FunctionType* mainType = llvm::FunctionType::get(m_irGen->m_builder->getVoidTy(), {m_irGen->XenonStateType->getPointerTo(), m_irGen->m_builder->getInt32Ty()}, false);
     m_irFunc = llvm::Function::Create(mainType, llvm::Function::ExternalLinkage, oss.str(), m_irGen->m_module);
 
+    getCreateBBinMap(start_address);
     //m_irGen->m_builder->SetInsertPoint(getCreateBBinMap(start_address));
 
 }

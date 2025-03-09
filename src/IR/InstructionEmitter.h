@@ -638,7 +638,10 @@ inline void divwx_e(Instruction instr, IRFunc* func)
 
 inline void subf_e(Instruction instr, IRFunc* func)
 {
-    llvm::Value* v = BUILD->CreateSub(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "sub");
+    // in docs the operation is:
+    // rD ← ~ (rA) + (rB) + 1
+    // but can be simplified to -> rB - rA, THEY ARE SWAPPED
+    llvm::Value* v = BUILD->CreateSub(gprVal(instr.ops[2]), gprVal(instr.ops[1]), "sub");
     BUILD->CreateStore(v, func->getRegister("RR", instr.ops[0]));
     
     // RC

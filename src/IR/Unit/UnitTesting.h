@@ -51,6 +51,27 @@ inline void unit_li(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
 	addi_e(instr, func);
 }
 
+inline void unit_divw(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	divwx_e(instr, func);
+}
+
+inline void unit_mulli(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	mulli_e(instr, func);
+}
+
+inline void unit_subf(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	subf_e(instr, func);
+}
+
 inline void unit_lwz(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
 {
 	Instruction instr;
