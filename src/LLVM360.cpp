@@ -70,8 +70,18 @@ void unitTest(IRGenerator* gen)
     // code
     //
 
-	unit_li(func, gen, {4, 0, (uint32_t) -1});
-    unit_srawi(func, gen, { 3, 4, 0x1 });
+	
+
+    /*li r4, 1
+        li r5, -1
+        divw r3, r4, r5
+        blr*/
+    //unit_li(func, gen, {4, 0, 0x7FFFFFFF});
+    unit_li(func, gen, { 11, 0, (uint32_t)7 });
+    unit_li(func, gen, { 10, 0, (uint32_t)5 });
+    unit_divw(func, gen, { 10, 11, 10 });
+    unit_mulli(func, gen, { 10, 10, 5 });
+    unit_subf(func, gen, { 3, 10, 11 });
     unit_bclr(func, gen, {});
     
 

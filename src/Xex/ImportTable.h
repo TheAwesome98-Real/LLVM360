@@ -12,6 +12,42 @@ static inline void loadImport(XboxLibrary lib, std::string name, uint32_t ordina
 #define LOAD_IMPORT(lib, ord, type, name) loadImport(lib, name, ord, type)
 
 
+static inline Import* findImport_FromLib(std::string libName, uint32_t ordinal)
+{
+    bool libFound = false;
+    bool ordFound = false;
+
+    if(strcmp(libName.c_str(), "xboxkrnl.exe") == 0)
+    {
+        for (Import* imp : import_table)
+        {
+            if (imp->lib == XboxKrnl)
+            {
+                libFound = true;
+
+                if(imp->ordinal == ordinal)
+                {
+                    ordFound = true;
+                    return imp;
+                }
+            }
+        }
+    }
+
+    if(!libFound)
+    {
+        printf("No Lib with name: s% found\n", libName.c_str());
+        return nullptr;
+    }
+
+    if (!ordFound)
+    {
+        printf("No Import in Lib: s% with ordinal i% found\n", libName.c_str(), ordinal);
+        return nullptr;
+    }
+}
+
+
 static inline void initImportTable()
 {
     //

@@ -27,13 +27,18 @@ public:
     std::string _name,
     uint32_t _ordinal) : lib(_lib), type(_type), name(_name), ordinal(_ordinal)
     {
-    
+        tableAddr = 0;
+        funcImportAddr = 0;
     }
 
     XboxLibrary lib;
     ImportType type;
     std::string name;
     uint32_t ordinal;
+
+    uint32_t tableAddr;
+    uint32_t funcImportAddr;
+
 };
 
 class Section {

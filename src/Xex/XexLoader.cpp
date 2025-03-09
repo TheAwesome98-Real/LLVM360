@@ -74,6 +74,17 @@ bool XexImage::LoadXex() {
   // the file data buffer can be freed
   delete[] fileData;
 
+
+  // finally, patch the imports
+  printf("Patching imports...\n");
+  if (!PatchImports())
+  {
+      free((void*)m_memoryData);
+      m_memoryData = nullptr;
+      m_memorySize = 0;
+      return false;
+  }
+
   return true; // Return true if successful
 }
 
@@ -761,7 +772,7 @@ bool XexImage::LoadPEImage(const uint8_t *fileData, const uint32_t fileDataSize)
 
 bool XexImage::PatchImports()
 {
-    /*/ process the records to get the actuall imports
+    // process the records to get the actuall imports
     // The number of records does not correspond to the number of imports!
     // Each record points at either a location in text or data - dereferencing the
     // pointer will yield a value that & 0xFFFF = the import ordinal,
@@ -776,7 +787,7 @@ bool XexImage::PatchImports()
         const auto memOffset = tableAddress - GetBaseAddress();
         if (memOffset > m_memorySize)
         {
-            log.Error("XEX: invalid import record offset: 0x%X", memOffset);
+            printf("XEX: invalid import record offset: 0x%X\n", memOffset);
             return false;
         }
 
@@ -802,40 +813,23 @@ bool XexImage::PatchImports()
             const std::string importLibName = m_libNames[libIndex];
             const uint32_t importAddress = (m_xexData.import_records[i]);
 
-            // find the function name
-            std::string exportName;
-            const uint32_t exportLibraryVersion = 0;
-            const auto* image = platform->GetExportLibrary() ? platform->GetExportLibrary()->FindImageByName(exportLibraryVersion, importLibName.c_str()) : nullptr;
-            if (image)
-            {
-                // find the export
-                const auto* exportInfo = image->FindExportByOrdinal(importOrdinal);
-                if (nullptr != exportInfo)
-                {
-                    exportName = exportInfo->GetName();
-                }
-                else
-                {
-                    printf("XEX: reference to unknown import 0x%X in '%s'\n", importOrdinal, importLibName.c_str());
-                }
-            }
-            else
-            {
-                printf("XEX: reference to unknown image '%s'\n", importLibName.c_str());
-            }
+            // find the import
+            Import* table_imp = findImport_FromLib(importLibName, importOrdinal);
+            Import* impV = new Import(table_imp->lib, VARIABLE, std::string{ table_imp->name.c_str() }, table_imp->ordinal);
 
             // autogenerate import name if not known
-            if (exportName.empty())
+            if (impV->name.empty())
             {
                 char autoExportName[256];
                 sprintf_s(autoExportName, 256, "Export%d", importOrdinal);
-                exportName = autoExportName;
+                impV->name = autoExportName;
             }
 
             // create import
-            image::Import* im = new image::Import(this, exportName.c_str(), importLibName.c_str(), tableAddress, importAddress, image::Import::eImportType_Data);
-            printf("XEX: Import symbol '%s', table=%06Xh\n", exportName.c_str(), importAddress);
-            m_imports.push_back(im);
+            impV->tableAddr = tableAddress;
+            impV->funcImportAddr = importAddress;
+            printf("XEX: Import symbol '%s', table=%06Xh\n", impV->name.c_str(), importAddress);
+            m_imports.push_back(impV);
         }
 
         // Import functions
@@ -852,40 +846,23 @@ bool XexImage::PatchImports()
             const std::string importLibName = m_libNames[libIndex];
             const uint32_t importAddress = (m_xexData.import_records[i]);
 
-            // find the function name
-            std::string exportName;
-            const uint32_t exportLibraryVersion = 0;
-            const auto* image = platform->GetExportLibrary() ? platform->GetExportLibrary()->FindImageByName(exportLibraryVersion, importLibName.c_str()) : nullptr;
-            if (image)
-            {
-                // find the export
-                const auto* exportInfo = image->FindExportByOrdinal(importOrdinal);
-                if (nullptr != exportInfo)
-                {
-                    exportName = exportInfo->GetName();
-                }
-                else
-                {
-                    printf("XEX: reference to unknown import 0x%X in '%s'\n", importOrdinal, importLibName.c_str());
-                }
-            }
-            else
-            {
-                printf("XEX: reference to unknown image '%s'\n", importLibName.c_str());
-            }
+            // find the import
+            Import* table_imp = findImport_FromLib(importLibName, importOrdinal);
+            Import* imp = new Import(table_imp->lib, FUNCTION, std::string{ table_imp->name.c_str()}, table_imp->ordinal);
 
             // autogenerate import name if not known
-            if (exportName.empty())
+            if (imp->name.empty())
             {
                 char autoExportName[256];
                 sprintf_s(autoExportName, 256, "Export%d", importOrdinal);
-                exportName = autoExportName;
+                imp->name = autoExportName;
             }
 
             // create import
-            image::Import* im = new image::Import(this, exportName.c_str(), importLibName.c_str(), tableAddress, importAddress, image::Import::eImportType_Function);
-            printf("XEX: Import func '%s', table=%06Xh, entry=%06Xh\n", exportName.c_str(), tableAddress, importAddress);
-            m_imports.push_back(im);
+            imp->tableAddr = tableAddress;
+            imp->funcImportAddr = importAddress;
+            printf("XEX: Import func '%s', table=%06Xh, entry=%06Xh\n", imp->name.c_str(), tableAddress, importAddress);
+            m_imports.push_back(imp);
         }
     }
 
