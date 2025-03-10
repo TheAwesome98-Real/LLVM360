@@ -34,9 +34,26 @@ static inline Import* findImport_FromLib(std::string libName, uint32_t ordinal)
         }
     }
 
+    if (strcmp(libName.c_str(), "xam.xex") == 0)
+    {
+        for (Import* imp : import_table)
+        {
+            if (imp->lib == Xam)
+            {
+                libFound = true;
+
+                if (imp->ordinal == ordinal)
+                {
+                    ordFound = true;
+                    return imp;
+                }
+            }
+        }
+    }
+
     if(!libFound)
     {
-        printf("No Lib with name: s% found\n", libName.c_str());
+        printf("No Lib with name: s% found\n", libName);
         return nullptr;
     }
 

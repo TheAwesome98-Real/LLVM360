@@ -164,7 +164,7 @@ public:
     return (uint32_t)m_sections.size();
   }
 
-  inline const Section *GetSection(const uint32_t index) const {
+  inline Section *GetSection(const uint32_t index) const {
     return m_sections[index];
   }
 

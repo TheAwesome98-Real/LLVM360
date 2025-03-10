@@ -1,43 +1,12 @@
-#include <iostream>
-#include <fstream>
-#include <stdio.h>
-#include <sstream>
-#include <iomanip>
-#include "misc/Utils.h"
-#include "Decoder/Instruction.h"
-#include "Decoder/InstructionDecoder.h"
-#include <chrono>
-#include "IR/IRGenerator.h"
-#include <Xex/XexLoader.h>
-#include <conio.h>  // for _kbhit
-#include <IR/Unit/UnitTesting.h>
-#include <IR/IRFunc.h>
-
-
-// Debug
-bool printINST = true;
-bool printFile = false;  // Set this flag to true or false based on your preference
-bool genLLVMIR = true;
-bool isUnitTesting = false;
-bool doOverride = false; // if it should override the endAddress to debug
-uint32_t overAddr = 0x82060150;
-
-// Benchmark / static analysis
-uint32_t instCount = 0;
-
-// Naive+ stuff
-XexImage* loadedXex;
-IRGenerator* g_irGen;
-llvm::LLVMContext cxt;
-llvm::Module* mod = new llvm::Module("Xenon", cxt);
-llvm::IRBuilder<llvm::NoFolder> builder(cxt);
+#include "Util.h"
 
 
 
-void SaveSectionToBin(const char* filename, const uint8_t* dataPtr, size_t dataSize) 
+
+void SaveSectionToBin(const char* filename, const uint8_t* dataPtr, size_t dataSize)
 {
     std::ofstream binFile(filename, std::ios::binary);
-    if (!binFile) 
+    if (!binFile)
     {
         printf("Error: Cannot open file %s for writing\n", filename);
         return;
@@ -58,6 +27,21 @@ void saveSection(const char* path, uint32_t idx)
     const uint64_t offset = address - section->GetVirtualOffset();
 
     SaveSectionToBin(path, (uint8_t*)m_imageDataPtr + offset, section->GetVirtualSize());
+}
+
+
+Section* findSection(std::string name)
+{
+    for (uint32_t i = 0; i < loadedXex->GetNumSections(); i++)
+    {
+        if (strcmp(loadedXex->GetSection(i)->GetName().c_str(), name.c_str()) == 0)
+        {
+            return loadedXex->GetSection(i);
+        }
+    }
+
+    printf("No Section with name: s& found", name);
+    return nullptr;
 }
 
 void unitTest(IRGenerator* gen)
@@ -124,130 +108,14 @@ void patchImportsFunctions()
     }
 }
 
-//
-// this flow pass find every function prologue that are jumped from BL instructions
-//
-void flow_blJumps(uint32_t start, uint32_t end)
-{
-    while (start < end)
-    {
-        Instruction instr = g_irGen->instrsList.at(start);
-        if (strcmp(instr.opcName.c_str(), "bl") == 0)
-        {
-            uint32_t target = instr.address + signExtend(instr.ops[0], 24);
-            if (!g_irGen->isIRFuncinMap(target))
-            {
-                printf("{flow_blJumps} Found new start of function bounds at: %08X\n", target);
-                g_irGen->getCreateFuncInMap(target);
-            }
-        }
 
-        start += 4;
-    }
-}
-
-//
-// this flow pass search every prolouge with mfspr R12 LR 
-// and since i know that if it save the LR the epilogue will restore it with
-// mtspr (check epilogue passes) so i set a metadata flag
-//
-void flow_mfsprProl(uint32_t start, uint32_t end)
-{
-    while (start < end)
-    {
-        Instruction instr = g_irGen->instrsList.at(start);
-        if (instr.instrWord == 0x7d8802a6)              // mfspr r12, LR
-        {
-            if (!g_irGen->isIRFuncinMap(start))
-                printf("{flow_mfsprProl} Found new start of function bounds at: %08X\n", start);
-            IRFunc* func = g_irGen->getCreateFuncInMap(start);
-            func->startW_MFSPR_LR = true;
-        }
-
-        start += 4;
-    }
-}
-void flow_aftBclrProl(uint32_t start, uint32_t end)
-{
-    while (start < end)
-    {
-        Instruction instr = g_irGen->instrsList.at(start);
-        if (strcmp(instr.opcName.c_str(), "bclr") == 0)
-        {
-            if (!g_irGen->isIRFuncinMap(start + 4))
-            {
-                printf("{flow_aftBclrProl} Found new start of function bounds at: %08X\n", start + 4);
-                g_irGen->getCreateFuncInMap(start + 4);
-            }
-        }
-
-        start += 4;
-    }
-}
-
-
-void flow_mtsprEpil(uint32_t start, uint32_t end)
-{
-    for (const auto& pair : g_irGen->m_function_map)
-    {
-        IRFunc* func = pair.second;
-        if (func->startW_MFSPR_LR && func->end_address == 0)
-        {
-            start = func->start_address;
-            while (start < end)
-            {
-                Instruction instr = g_irGen->instrsList.at(start);
-                if (instr.instrWord == 0x7d8803a6)            // mtspr LR, r12
-                {
-
-                    // this account for cases where there's some LD instructions
-                    uint32_t off = start + 4;
-                    do
-                    {
-                        instr = g_irGen->instrsList.at(off);
-                        off += 4;
-                    } while (strcmp(instr.opcName.c_str(), "bclr") != 0);
-
-                    func->end_address = off - 4;
-                    printf("{flow_mtsprEpil} Found new end of function bounds at: %08X\n", func->end_address);
-                    break;
-                }
-
-                start += 4;
-            }
-        }
-    }
-}
-
-void flow_bclrEpil(uint32_t start, uint32_t end)
-{
-    for (const auto& pair : g_irGen->m_function_map)
-    {
-        IRFunc* func = pair.second;
-        if (func->end_address == 0)
-        {
-            start = func->start_address;
-            while (start < end)
-            {
-                Instruction instr = g_irGen->instrsList.at(start);
-                if (strcmp(instr.opcName.c_str(), "bclr") == 0)
-                {
-                    func->end_address = start;
-                    printf("{flow_bclrEpil} Found new end of function bounds at: %08X\n", func->end_address);
-                }
-
-                start += 4;
-            }
-        }
-    }
-}
 
 bool pass_Flow()
 {
     bool ret = true;
 
     patchImportsFunctions();
-
+    flow_pData();  // search pData
 
     for (size_t i = 0; i < loadedXex->GetNumSections(); i++)
     {
@@ -270,17 +138,23 @@ bool pass_Flow()
         IRFunc* prevFunc = nullptr;
 		IRFunc* currentFunc = first;
 		
+
+        //
+        // Passes
+        //
+
+        flow_promoteSaveRest(address, endAddress);
+
         // prologue
         printf("-- prologue search --\n");
         flow_blJumps(address, endAddress);
         flow_mfsprProl(address, endAddress);
-        flow_aftBclrProl(address, endAddress);
+        flow_promoteTailProl(address, endAddress);
 
         // epilogue
         printf("\n-- epilogue search --\n");
         flow_mtsprEpil(address, endAddress);
-        flow_bclrEpil(address, endAddress);
-
+        flow_bclrAndTailEpil(address, endAddress);
     }
 
     return ret;
