@@ -44,11 +44,24 @@ void IRGenerator::CxtSwapFunc()
     m_builder->CreateRet(tlsVariable);
 }
 
+void IRGenerator::initExtFunc()
+{
+    llvm::FunctionType* importType = llvm::FunctionType::get(m_builder->getVoidTy(), { XenonStateType->getPointerTo(), m_builder->getInt32Ty() }, false);
+    bcctrlFunc = llvm::Function::Create(importType, llvm::Function::ExternalLinkage, "HandleBcctrl", m_module);
 
+    llvm::FunctionType* funcType = llvm::FunctionType::get(m_builder->getVoidTy(),false);
+    dllTestFunc = llvm::Function::Create(
+        funcType,
+        llvm::Function::ExternalLinkage,
+        "dllHack",
+        m_module
+    );
+}
 
 void IRGenerator::InitLLVM() {
   
-    this->CxtSwapFunc();
+    CxtSwapFunc();
+    initExtFunc();
 
 	// main function / entry point
     llvm::FunctionType* mainType = llvm::FunctionType::get(m_builder->getInt32Ty(), false);
@@ -81,6 +94,57 @@ void IRGenerator::InitLLVM() {
 	m_builder->CreateRet(llvm::ConstantInt::get(m_builder->getInt32Ty(), 0));
 
 	
+}
+
+void IRGenerator::exportFunctionArray() 
+{
+
+    llvm::Type* i32Ty = m_builder->getInt32Ty();
+    llvm::Type* i8PtrTy = m_builder->getInt8Ty()->getPointerTo();
+
+    //
+    // Count
+    //
+    llvm::Constant* countConst = llvm::ConstantInt::get(i32Ty, m_function_map.size());
+    llvm::GlobalVariable* countGV = new llvm::GlobalVariable(
+        *m_module,
+        i32Ty,
+        true,                              
+        llvm::GlobalValue::ExternalLinkage, 
+        countConst,                        
+        "X_FunctionArrayCount"            
+    );
+    
+    //
+    // Array
+    //
+    std::vector<llvm::Type*> fieldTypes = { i32Ty, i8PtrTy };
+    llvm::StructType* xFuncType = llvm::StructType::create(m_module->getContext(), fieldTypes, "X_Function");
+    std::vector<llvm::Constant*> initElements;
+    for (const auto& pair : m_function_map)
+    {
+        IRFunc* func = pair.second;
+        llvm::Constant* addrConst = llvm::ConstantInt::get(i32Ty, func->start_address, false);
+        llvm::Constant* funcPtr = llvm::ConstantExpr::getBitCast(func->m_irFunc, i8PtrTy);
+        std::vector<llvm::Constant*> structFields = { addrConst, funcPtr };
+        llvm::Constant* xFuncConst = llvm::ConstantStruct::get(xFuncType, structFields);
+        initElements.push_back(xFuncConst);
+    }
+
+
+    llvm::ArrayType* arrType = llvm::ArrayType::get(xFuncType, initElements.size());
+    llvm::Constant* arrInit = llvm::ConstantArray::get(arrType, initElements);
+    llvm::GlobalVariable* exportArrGV = new llvm::GlobalVariable(
+        *m_module,
+        arrType,
+        true,  
+        llvm::GlobalValue::ExternalLinkage,
+        arrInit,
+        "X_FunctionArray"
+    );
+
+    countGV->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
+    exportArrGV->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
 }
 
 void IRGenerator::Initialize() {
@@ -132,7 +196,7 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"b", b_e },
          {"bl", bl_e },
          {"bclr", bclr_e },
-         {"bcctr", bcctr_e },
+         {"bcctrl", bcctrl_e},
          {"lhz", lhz_e },
          {"cmpw", cmpw_e},
          {"bc", bcx_e},
@@ -153,6 +217,7 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"stwx", stwx_e},
          {"cmplwi", cmpli_e},
          {"mulli", mulli_e},
+         {"std", std_e},
     };
 
 

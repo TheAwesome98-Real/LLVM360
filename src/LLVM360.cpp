@@ -150,6 +150,8 @@ bool pass_Flow()
         flow_blJumps(address, endAddress);
         flow_mfsprProl(address, endAddress);
         flow_promoteTailProl(address, endAddress);
+        flow_stackInitProl(address, endAddress);
+        flow_aftBclrProl(address, endAddress); // this as last resort, if called before could break everything
 
         // epilogue
         printf("\n-- epilogue search --\n");
@@ -350,6 +352,8 @@ int main()
     //saveSection("bin/Debug/rdata.bin", 0);
     //saveSection("bin/Debug/data.bin", 3);
    
+    g_irGen->exportFunctionArray();
+
     // Stop the timer
     auto end = std::chrono::high_resolution_clock::now();
 

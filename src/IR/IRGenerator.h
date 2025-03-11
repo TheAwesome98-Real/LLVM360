@@ -33,27 +33,16 @@ public:
   void InitLLVM();
   void writeIRtoFile();
   void CxtSwapFunc();
+  void exportFunctionArray();
+  void initExtFunc();
 
 
-  // TESTT
-    // This is just for testing, to force the compiler to link the dll
-    // 
-    // Define the type of the variable (e.g., a pointer to the XenonState struct)
-  llvm::FunctionType* funcType = llvm::FunctionType::get(
-      llvm::Type::getVoidTy(m_module->getContext()), // Return type (void in this case)
-      false                           // No parameters
-  );
 
-  llvm::Function* dllTestFunc = llvm::Function::Create(
-      funcType,
-      llvm::Function::ExternalLinkage,
-      "dllHack",  
-      m_module      
-  );
-  ////
+  llvm::Function* bcctrlFunc;
+  llvm::Function* dllTestFunc;
   
-  llvm::Value* xCtx;
-  
+
+  llvm::Value* xCtx;  
   llvm::GlobalVariable* tlsVariable;
   llvm::StructType* XenonStateType = llvm::StructType::create(
       m_builder->getContext(), {

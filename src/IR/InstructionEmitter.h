@@ -112,6 +112,7 @@ inline llvm::Value* getBOOperation(IRFunc* func, Instruction instr, llvm::Value*
     {
 		// TODO: optmize this
         should_branch = BUILD->CreateAnd(BUILD->CreateNot(bi, "not"), i1Const(1), "shBr");
+        return should_branch;
     }
     // 0100y
     if (!isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) &&
@@ -133,6 +134,7 @@ inline llvm::Value* getBOOperation(IRFunc* func, Instruction instr, llvm::Value*
     if (isBoBit(instr.ops[0], 2) && isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
     {
         should_branch = BUILD->CreateAnd(bi, i1Const(1), "shBr");
+        return should_branch;
     }
     // 0b1z00y
     if (!isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) && isBoBit(instr.ops[0], 4))
@@ -142,7 +144,9 @@ inline llvm::Value* getBOOperation(IRFunc* func, Instruction instr, llvm::Value*
         should_branch = BUILD->CreateAnd(isCTRnz, i1Const(1), "shBr");
     }
 
-    return should_branch;
+    printf("un-implemented condition\n");
+    DebugBreak();
+    return nullptr;
 }
 
 
@@ -226,10 +230,18 @@ inline llvm::Value* getEA_displ(IRFunc* func, uint32_t displ, uint32_t gpr)
     return BUILD->CreateIntToPtr(ea, i32_T->getPointerTo(), "addrPtr");
 }
 
+inline llvm::Value* getEA_Dword_displ(IRFunc* func, uint32_t displ, uint32_t gpr)
+{
+    llvm::Value* extendedDisplacement = sExt64(llvm::ConstantInt::get(i32_T, llvm::APInt(16, displ, true)));
+    llvm::Value* regValue = gprVal(gpr);
+    llvm::Value* ea = BUILD->CreateAdd(regValue, BUILD->CreateShl(extendedDisplacement, 2, "shl"), "ea");
+    return BUILD->CreateIntToPtr(ea, i64_T->getPointerTo(), "addrPtr");
+}
+
 inline llvm::Value* getEA_regs(IRFunc* func, uint32_t gpr1, uint32_t gpr2)
 {
     llvm::Value* ea = BUILD->CreateAdd(gprVal(gpr1), gprVal(gpr2), "ea");
-    return BUILD->CreateIntToPtr(ea, i32_T->getPointerTo(), "addrPtr");
+    return BUILD->CreateIntToPtr(ea, i64_T->getPointerTo(), "addrPtr");
 }
 
 //
@@ -245,12 +257,14 @@ inline void nop_e(Instruction instr, IRFunc* func)
 inline void twi_e(Instruction instr, IRFunc* func)
 {
     // temp stub
+    DebugBreak();
     return;
 }
 
 inline void bcctr_e(Instruction instr, IRFunc* func)
 {
     // temp stub
+    DebugBreak();
     return;
 }
 
@@ -296,12 +310,35 @@ inline void b_e(Instruction instr, IRFunc* func)
     uint32_t target = instr.address + signExtend(instr.ops[0], 24);
     llvm::BasicBlock* target_BB = func->getCreateBBinMap(target);
 
+    // tail call
+    if(func->m_irGen->isIRFuncinMap(target))
+    {
+        auto argIter = func->m_irFunc->arg_begin();
+        llvm::Argument* arg1 = &*argIter;
+        llvm::Argument* arg2 = &*(++argIter);
+
+        IRFunc* tailCall = func->m_irGen->getCreateFuncInMap(target);
+        BUILD->CreateCall(tailCall->m_irFunc, { arg1, arg2 });
+        BUILD->CreateRetVoid();
+        return;
+    }
+
+
     BUILD->CreateBr(target_BB);
 }
 
 inline void bclr_e(Instruction instr, IRFunc* func)
 {
 	BUILD->CreateRetVoid();
+}
+
+inline void bcctrl_e(Instruction instr, IRFunc* func)
+{
+    auto argIter = func->m_irFunc->arg_begin();
+    llvm::Argument* arg1 = &*argIter;
+    llvm::Argument* arg2 = &*(++argIter);
+
+    BUILD->CreateCall(func->m_irGen->bcctrlFunc, { arg1, i32Const(instr.address + 4) });
 }
 
 inline void stfd_e(Instruction instr, IRFunc* func)
@@ -332,6 +369,12 @@ inline void stwx_e(Instruction instr, IRFunc* func)
 {
     llvm::Value* ea = getEA_regs(func, instr.ops[1], instr.ops[2]);
     BUILD->CreateStore(trcTo32(gprVal(instr.ops[0])), ea);
+}
+
+inline void std_e(Instruction instr, IRFunc* func)
+{
+
+    BUILD->CreateStore(gprVal(instr.ops[0]), getEA_Dword_displ(func, instr.ops[1], instr.ops[2]));
 }
 
 inline void addi_e(Instruction instr, IRFunc* func)

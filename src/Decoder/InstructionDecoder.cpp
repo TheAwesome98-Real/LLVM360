@@ -1159,9 +1159,9 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t *stride, Instructio
 
     case 62:
         if (!aa && !b31_1)
-            INST("std", S, b11_5, b16_14) // std rS,ds(rA)
+            INST("std", S, b16_14, b11_5) // std rS,ds(rA)
             if (!aa && b31_1)
-                INST("stdu", S, b11_5, b16_14) // stdu rS,ds(rA) if lk == 1
+                INST("stdu", S, b16_14, b11_5) // stdu rS,ds(rA) if lk == 1
 
                 // single floating math wowoy
     case 59: {

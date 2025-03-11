@@ -15,7 +15,7 @@
 #include <IR/IRFunc.h>
 
 // Debug
-bool printINST = false;
+bool printINST = true;
 bool printFile = false;  // Set this flag to true or false based on your preference
 bool genLLVMIR = true;
 bool isUnitTesting = false;
@@ -66,6 +66,7 @@ void flow_pData()
         const uint8_t* stride = m_imageDataPtr + offset;
 
         const uint32_t size = pData->GetVirtualSize() / 8;
+        std::vector<pDataInfo> infoList;
 
         for (uint32_t i = 0; i < size; i++)
         {
@@ -75,6 +76,7 @@ void flow_pData()
 
             IRFunc* func = g_irGen->getCreateFuncInMap(info.funcAddr);
             func->end_address = (info.funcAddr + (info.funcLength * 4) - 4);
+            infoList.push_back(info);
         }
 
 
@@ -232,18 +234,88 @@ void flow_mfsprProl(uint32_t start, uint32_t end)
         start += 4;
     }
 }
+
+void flow_stackInitProl(uint32_t start, uint32_t end)
+{
+    bool first = true;
+    while (start < end)
+    {
+        if (start == end - 4) break;
+        Instruction instr = g_irGen->instrsList.at(start);
+        Instruction nextInstr = g_irGen->instrsList.at(start + 4);;
+        Instruction prevInstr;
+        if(first)
+        {
+            prevInstr = Instruction{ start, 0x0, std::string{"nop"}, std::vector<uint32_t>{0, 0, 0} };
+            first = false;
+        }
+        else
+        {
+            prevInstr = g_irGen->instrsList.at(start - 4);
+        }
+        if (strcmp(instr.opcName.c_str(), "stw") == 0 && instr.ops[2] == 1)
+        {
+            if((strcmp(prevInstr.opcName.c_str(), "bclr") == 0 && instr.ops[2] == 1) ||
+                (strcmp(prevInstr.opcName.c_str(), "nop") == 0))
+            {
+                if (!g_irGen->isIRFuncinMap(start))
+                {
+                    printf("{flow_stackInitProl} Found new start of function bounds at: %08X\n", start);
+                    g_irGen->getCreateFuncInMap(start);
+                }
+
+                if ((strcmp(nextInstr.opcName.c_str(), "stw") == 0 && instr.ops[2] == 1))
+                {
+                    start += 8;
+                    continue;
+                }
+            }
+            start += 4;
+            continue;
+        }
+
+        start += 4;
+    }
+}
+
 void flow_aftBclrProl(uint32_t start, uint32_t end)
 {
     while (start < end)
     {
+        if (start == end - 4) break;
         Instruction instr = g_irGen->instrsList.at(start);
+        Instruction instrAfter;
         if (strcmp(instr.opcName.c_str(), "bclr") == 0)
         {
-            if (!g_irGen->isIRFuncinMap(start + 4))
+            instrAfter = g_irGen->instrsList.at(start + 4);
+            if(strcmp(instrAfter.opcName.c_str(), "stw") == 0 && instrAfter.ops[2] == 1)
             {
-                printf("{flow_aftBclrProl} Found new start of function bounds at: %08X\n", start + 4);
-                g_irGen->getCreateFuncInMap(start + 4);
+                if (g_irGen->isIRFuncinMap(instrAfter.address))
+                {
+                    start += 4;
+                    continue;
+                }
+
+                printf("{flow_aftBclrProl} Found new start of function bounds at: %08X\n", instrAfter.address);
+                g_irGen->getCreateFuncInMap(instrAfter.address);
             }
+
+
+            uint32_t off = start + 4;
+            do
+            {
+                instrAfter = g_irGen->instrsList.at(off);
+                off += 4;
+            } while (strcmp(instrAfter.opcName.c_str(), "nop") == 0);
+
+            if (g_irGen->isIRFuncinMap(instrAfter.address))
+            {
+                start += 4;
+                continue;
+            }
+
+            printf("{flow_aftBclrProl} Found new start of function bounds at: %08X\n", instrAfter.address);
+            g_irGen->getCreateFuncInMap(instrAfter.address);
         }
 
         start += 4;
@@ -254,7 +326,7 @@ void flow_promoteTailProl(uint32_t start, uint32_t end)
 {
     while (start < end)
     {
-      
+        if (start == end - 4) break;
         Instruction instr = g_irGen->instrsList.at(start);
         Instruction instrAfter = g_irGen->instrsList.at(start + 4);
         if (strcmp(instr.opcName.c_str(), "b") == 0)
@@ -268,7 +340,8 @@ void flow_promoteTailProl(uint32_t start, uint32_t end)
                     printf("{flow_bclrAndTailEpil} Promoted new function at: %08X\n", target);
                     g_irGen->getCreateFuncInMap(target);
                 }
-                break;
+                start += 4;
+                continue;
             }
 
             // it's a tail call 100%
@@ -280,7 +353,8 @@ void flow_promoteTailProl(uint32_t start, uint32_t end)
                     printf("{flow_bclrAndTailEpil} Promoted new function at: %08X\n", target);
                     g_irGen->getCreateFuncInMap(target);
                 }
-                break;
+                start += 4;
+                continue;
             }
         }
 
@@ -334,6 +408,15 @@ void flow_bclrAndTailEpil(uint32_t start, uint32_t end)
             start = func->start_address;
             while (start < end)
             {
+                
+                
+
+                if (start == end - 4)
+                {
+                    func->end_address = start;
+                    printf("{flow_bclrAndTailEpil} Found new end of function bounds at: %08X\n", func->end_address);
+                    break;
+                }
 
                 Instruction instr = g_irGen->instrsList.at(start);
                 Instruction instrAfter = g_irGen->instrsList.at(start + 4);
@@ -414,7 +497,8 @@ void flow_stdTailDEpil(uint32_t start, uint32_t end)
                         if (g_irGen->isIRFuncinMap(start + 4)) // probably the actual end
                         {
                             printf("{flow_stdTailDEpil} Found new end of function bounds at: %08X\n", func->end_address);
-                            break;
+                            start += 4;
+                            continue;
                         }
                     }
                 }
