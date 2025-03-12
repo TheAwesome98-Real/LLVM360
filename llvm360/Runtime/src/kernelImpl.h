@@ -1,10 +1,6 @@
 #pragma once
 #include "Runtime.h"
 
-
-#define DLL_API __declspec(dllexport)
-
-
 extern "C"
 {
 	DLL_API int dllHack()
@@ -30,6 +26,7 @@ extern "C"
 				return;
 			}
 		}
+		printf("-------- {HandleBcctrl} ERROR: NO FUNCTION AT: %u \n", ctx->CTR);
 		return;
 	}
 }

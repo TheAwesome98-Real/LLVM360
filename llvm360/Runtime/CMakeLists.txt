@@ -7,6 +7,11 @@ file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.h")
 # Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+# imgui
+set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../external/imgui)
+include_directories(${IMGUI_DIR})
+
+
 if(MSVC)
     # Debug build flags
     set(CMAKE_C_FLAGS_DEBUG "/ZI /Od /Ob0 /DNDEBUG" CACHE STRING "" FORCE)
@@ -17,8 +22,21 @@ if(MSVC)
     set(CMAKE_CXX_FLAGS_RELEASE "/O2" CACHE STRING "" FORCE)
 endif()
 
+
+
+set(IMGUI_SRC
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_dx12.cpp   
+    ${IMGUI_DIR}/backends/imgui_impl_win32.cpp 
+)
+
+
 # Create a shared library
-add_library(Runtime SHARED ${SOURCES})
+add_library(Runtime SHARED ${SOURCES} ${IMGUI_SRC})
+
 
 # Set output directories to the same folder as the master project (bin/)
 set_target_properties(Runtime PROPERTIES
@@ -31,6 +49,9 @@ set_target_properties(Runtime PROPERTIES
 if(MSVC)
     target_compile_definitions(Runtime PRIVATE "RUNTIME_EXPORTS")
 endif()
+
+
+target_link_libraries(Runtime PRIVATE d3d12 dxgi dxguid)
 
 # Link dependencies (if any)
 target_precompile_headers(Runtime PRIVATE src/pch.h)
