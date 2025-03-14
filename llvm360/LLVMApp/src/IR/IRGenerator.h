@@ -26,6 +26,7 @@ public:
   llvm::Module* m_module;
   // Xenon State stuff
   XexImage *m_xexImage;
+  bool m_dbCallBack;
 
   IRGenerator(XexImage *xex, llvm::Module* mod, llvm::IRBuilder<llvm::NoFolder>* builder);
   void Initialize();
@@ -37,7 +38,7 @@ public:
   void initExtFunc();
 
 
-
+  llvm::Function* dBCallBackFunc;
   llvm::Function* bcctrlFunc;
   llvm::Function* dllTestFunc;
   

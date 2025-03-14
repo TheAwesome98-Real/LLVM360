@@ -7,9 +7,12 @@ file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.h")
 # Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+
 # imgui
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../external/imgui)
 include_directories(${IMGUI_DIR})
+include_directories(${IMGUI_DIR}/backends)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../external/sdl2)
 
 
 if(MSVC)
@@ -26,10 +29,11 @@ endif()
 
 set(IMGUI_SRC
     ${IMGUI_DIR}/imgui.cpp
+	${IMGUI_DIR}/imgui_demo.cpp
     ${IMGUI_DIR}/imgui_draw.cpp
     ${IMGUI_DIR}/imgui_tables.cpp
     ${IMGUI_DIR}/imgui_widgets.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_dx12.cpp   
+    ${IMGUI_DIR}/backends/imgui_impl_dx11.cpp   
     ${IMGUI_DIR}/backends/imgui_impl_win32.cpp 
 )
 
@@ -51,7 +55,15 @@ if(MSVC)
 endif()
 
 
-target_link_libraries(Runtime PRIVATE d3d12 dxgi dxguid)
+target_link_libraries(Runtime PRIVATE d3d12 d3d11 dxgi dxguid)
 
 # Link dependencies (if any)
 target_precompile_headers(Runtime PRIVATE src/pch.h)
+
+# Organize files into folders/filters matching the src/ directory
+foreach(SOURCE_FILE IN LISTS SOURCES)
+    get_filename_component(SOURCE_PATH "${SOURCE_FILE}" PATH)
+    file(RELATIVE_PATH REL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src" "${SOURCE_PATH}")
+    string(REPLACE "/" "\\" FILTER_GROUP "${REL_PATH}")
+    source_group("${FILTER_GROUP}" FILES "${SOURCE_FILE}")
+endforeach()

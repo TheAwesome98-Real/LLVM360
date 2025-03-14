@@ -8,7 +8,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
         XRuntime::initGlobal();
         XRuntime::g_runtime->init();
-        
+        ImGuiDebugger::initStatic();
         
 
         break;

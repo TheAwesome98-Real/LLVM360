@@ -5,6 +5,7 @@
 #include <sstream>
 
 
+
 IRGenerator::IRGenerator(XexImage *xex, llvm::Module* mod, llvm::IRBuilder<llvm::NoFolder>* builder)
   : m_builder(builder)
   , m_module(mod) {
@@ -48,6 +49,10 @@ void IRGenerator::initExtFunc()
 {
     llvm::FunctionType* importType = llvm::FunctionType::get(m_builder->getVoidTy(), { XenonStateType->getPointerTo(), m_builder->getInt32Ty() }, false);
     bcctrlFunc = llvm::Function::Create(importType, llvm::Function::ExternalLinkage, "HandleBcctrl", m_module);
+
+    // XenonState, instrAddress, name
+    llvm::FunctionType* callBkType = llvm::FunctionType::get(m_builder->getVoidTy(), { XenonStateType->getPointerTo(), m_builder->getInt32Ty(),  m_builder->getInt8Ty()->getPointerTo() }, false);
+    dBCallBackFunc = llvm::Function::Create(callBkType, llvm::Function::ExternalLinkage, "DebugCallBack", m_module);
 
     llvm::FunctionType* funcType = llvm::FunctionType::get(m_builder->getVoidTy(),false);
     dllTestFunc = llvm::Function::Create(
@@ -154,6 +159,7 @@ void IRGenerator::Initialize() {
 bool first = true;
 
 #define DEBUG_COMMENT(x) m_builder->CreateAdd(m_builder->getInt32(0), m_builder->getInt32(0), x);
+#define DEBUG_CALLBACK() m_builder->CreateCall(dBCallBackFunc, { &*func->m_irFunc->arg_begin(), m_builder->getInt32(instr.address), m_builder->CreateGlobalStringPtr(instr.opcName) });
 
 bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
     // EEHHE can't use a std::string in a switch statement sooo...
@@ -173,7 +179,10 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
     oss << " ------";
     DEBUG_COMMENT(oss.str().c_str())
 
-
+    if (m_dbCallBack)
+    {
+        DEBUG_CALLBACK();
+    }
 
         // <name>_e = <name>_emitter
         static std::unordered_map<std::string, std::function<void(Instruction, IRFunc*)>>
@@ -247,7 +256,7 @@ void IRGenerator::writeIRtoFile()
     m_module->print(out, nullptr);
 
     std::error_code EC;
-    llvm::raw_fd_ostream OS("bin/Debug/output.ll", EC);
+    llvm::raw_fd_ostream OS("../../bin/Debug/output.ll", EC);
     if (EC) {
         llvm::errs() << "Error writing to file: " << EC.message() << "\n";
     }

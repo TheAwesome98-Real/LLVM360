@@ -1,5 +1,6 @@
 #include "Runtime.h"
-#include "pch.h"
+#include "../pch.h"
+
 
 void* AllocateBelow4GB(HANDLE process, SIZE_T size) {
     const uintptr_t startAddress = 0x10000000; // Start at 256MB
@@ -81,6 +82,9 @@ void XRuntime::init()
     }
 
     initMainThread(this);
+    
+	//m_graphics = new Graphics();
+    //m_graphics->initGraphics();
 }
 
 

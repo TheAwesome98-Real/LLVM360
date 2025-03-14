@@ -296,6 +296,7 @@ int main()
     loadedXex->LoadXex();
     g_irGen = new IRGenerator(loadedXex, mod, &builder);
     g_irGen->Initialize();
+    g_irGen->m_dbCallBack = dbCallBack;
 
     printf("\n\n\n");
     auto start = std::chrono::high_resolution_clock::now();
@@ -349,8 +350,8 @@ int main()
     }
 
     // sections
-    //saveSection("bin/Debug/rdata.bin", 0);
-    //saveSection("bin/Debug/data.bin", 3);
+    saveSection("bin/Debug/rdata.bin", 0);
+    saveSection("bin/Debug/data.bin", 3);
    
     g_irGen->exportFunctionArray();
 
@@ -359,6 +360,8 @@ int main()
 
     
 	g_irGen->writeIRtoFile();
+    if(dbCallBack)
+        serializeDBMapData(g_irGen->instrsList, "../../bin/Debug/dbMapData.bin");
     // Calculate the duration
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     printf("\n\n\nDecoding process took: %f seconds\n", duration.count() / 1000000.0);

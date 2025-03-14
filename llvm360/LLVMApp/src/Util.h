@@ -20,6 +20,7 @@ bool printFile = false;  // Set this flag to true or false based on your prefere
 bool genLLVMIR = true;
 bool isUnitTesting = false;
 bool doOverride = false; // if it should override the endAddress to debug
+bool dbCallBack = true; // enables debug callbacks, break points etc
 uint32_t overAddr = 0x82060150;
 
 // Benchmark / static analysis
@@ -507,4 +508,41 @@ void flow_stdTailDEpil(uint32_t start, uint32_t end)
             }
         }
     }
+}
+
+void serializeDBMapData(const std::unordered_map<uint32_t, Instruction>& map, const std::string& filename)
+{
+    std::ofstream ofs(filename, std::ios::binary);
+    if (!ofs.is_open()) {
+        printf("Error opening file for writing\n");
+        return;
+    }
+
+    // sort by address
+    std::vector<Instruction> sorted_instructions;
+    for (const auto& entry : map) {
+        sorted_instructions.push_back(entry.second);
+    }
+    std::sort(sorted_instructions.begin(), sorted_instructions.end(),
+        [](const Instruction& a, const Instruction& b) { return a.address < b.address; });
+
+    // serialize
+    for (const Instruction& inst : sorted_instructions) {
+        // address, instrWord
+        ofs.write(reinterpret_cast<const char*>(&inst.address), sizeof(inst.address));
+        ofs.write(reinterpret_cast<const char*>(&inst.instrWord), sizeof(inst.instrWord));
+        // opcName
+        uint32_t nameLength = inst.opcName.size();
+        ofs.write(reinterpret_cast<const char*>(&nameLength), sizeof(nameLength)); 
+        ofs.write(inst.opcName.c_str(), nameLength + 1); 
+        // operands 
+        uint32_t opsSize = inst.ops.size();
+        ofs.write(reinterpret_cast<const char*>(&opsSize), sizeof(opsSize));
+        if (opsSize > 0) {
+            ofs.write(reinterpret_cast<const char*>(inst.ops.data()), opsSize * sizeof(uint32_t));
+        }
+    }
+
+    ofs.close();
+    printf("Serialization completed successfully.\n");
 }

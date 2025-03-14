@@ -58,7 +58,10 @@ bool IRFunc::EmitFunction()
 		{
 			currentBlock->end = idx;
 		}
-
+        if(idx == this->end_address)
+        {
+            currentBlock->end = this->end_address;
+        }
         idx += 4;
     }
 
