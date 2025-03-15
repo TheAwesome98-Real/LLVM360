@@ -35,6 +35,24 @@ llvm::IRBuilder<llvm::NoFolder> builder(cxt);
 
 Section* findSection(std::string name);
 
+struct EXPMD_Section
+{
+	uint32_t dat_offset;
+    uint32_t size;
+	uint32_t flags;
+	std::string sec_name;
+	uint8_t* data;
+};
+
+struct EXPMD_Header
+{
+    uint32_t magic;
+	uint32_t version;
+	uint32_t flags;
+	uint32_t numSections;
+	EXPMD_Section** sections;
+};
+
 struct pDataInfo
 {
     uint32_t funcAddr;

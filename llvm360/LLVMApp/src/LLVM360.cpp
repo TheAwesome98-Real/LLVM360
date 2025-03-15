@@ -16,6 +16,7 @@ void SaveSectionToBin(const char* filename, const uint8_t* dataPtr, size_t dataS
 }
 
 
+
 void saveSection(const char* path, uint32_t idx)
 {
     const Section* section = loadedXex->GetSection(idx);
@@ -42,6 +43,63 @@ Section* findSection(std::string name)
 
     printf("No Section with name: s& found", name);
     return nullptr;
+}
+
+
+
+void exportMetadata(const char* path)
+{
+	EXPMD_Header header;
+	header.magic = 0x54535338;
+	header.version = 1; 
+	header.flags = 0;
+	header.numSections = loadedXex->GetNumSections();
+	header.sections = new EXPMD_Section * [header.numSections];
+    
+	for (uint32_t i = 0; i < header.numSections; i++)
+	{
+		Section* section = loadedXex->GetSection(i);
+		EXPMD_Section* sec = new EXPMD_Section();
+		sec->dat_offset = loadedXex->GetBaseAddress() + section->GetVirtualOffset();
+		sec->size = section->GetVirtualSize();
+		sec->flags = 0;
+		sec->sec_name = (char*)section->GetName().c_str();
+
+
+        const auto baseAddress = loadedXex->GetBaseAddress();
+        const auto sectionBaseAddress = baseAddress + section->GetVirtualOffset();
+        auto endAddress = baseAddress + section->GetVirtualOffset() + section->GetVirtualSize();
+        auto address = sectionBaseAddress;
+        const uint8_t* m_imageDataPtr = (const uint8_t*)section->GetImage()->GetMemory() + (section->GetVirtualOffset() - section->GetImage()->GetBaseAddress());
+        const uint64_t offset = address - section->GetVirtualOffset();
+
+        sec->data = (uint8_t*)m_imageDataPtr + offset;
+		header.sections[i] = sec;
+	}
+
+    std::ofstream binFile(path, std::ios::binary);
+    if (!binFile)
+    {
+        printf("Error: Cannot open file %s for writing\n", path);
+        return;
+    }
+
+	binFile.write(reinterpret_cast<const char*>(&header.magic), sizeof(uint32_t));
+    binFile.write(reinterpret_cast<const char*>(&header.version), sizeof(uint32_t));
+    binFile.write(reinterpret_cast<const char*>(&header.flags), sizeof(uint32_t));
+    binFile.write(reinterpret_cast<const char*>(&header.numSections), sizeof(uint32_t));
+
+    for (uint32_t i = 0; i < header.numSections; i++)
+    {
+        EXPMD_Section sec = *header.sections[i];
+        binFile.write(reinterpret_cast<const char*>(&sec.dat_offset), sizeof(uint32_t));
+        binFile.write(reinterpret_cast<const char*>(&sec.size), sizeof(uint32_t));
+        binFile.write(reinterpret_cast<const char*>(&sec.flags), sizeof(uint32_t));
+        binFile.write(sec.sec_name.c_str(), sec.sec_name.size());
+        binFile.write(reinterpret_cast<char*>(sec.data), sec.size);
+    }
+
+    binFile.close();
 }
 
 void unitTest(IRGenerator* gen)
@@ -151,7 +209,7 @@ bool pass_Flow()
         flow_mfsprProl(address, endAddress);
         flow_promoteTailProl(address, endAddress);
         flow_stackInitProl(address, endAddress);
-        flow_aftBclrProl(address, endAddress); // this as last resort, if called before could break everything
+        //flow_aftBclrProl(address, endAddress); // this as last resort, if called before could break everything
 
         // epilogue
         printf("\n-- epilogue search --\n");
@@ -350,9 +408,10 @@ int main()
     }
 
     // sections
-    saveSection("bin/Debug/rdata.bin", 0);
-    saveSection("bin/Debug/data.bin", 3);
-   
+    saveSection("rdata.bin", 0);
+    //saveSection("../bin/Debug/data.bin", 3);
+    exportMetadata("MD.tss");
+    
     g_irGen->exportFunctionArray();
 
     // Stop the timer

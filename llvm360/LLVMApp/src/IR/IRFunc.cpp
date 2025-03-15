@@ -32,7 +32,8 @@ bool IRFunc::EmitFunction()
 		if (strcmp(instr.opcName.c_str(), "b") == 0)
 		{
             uint32_t target = idx + signExtend(instr.ops[0], 24);
-            llvm::BasicBlock* target_BB = this->getCreateBBinMap(target);
+            this->getCreateBBinMap(target);
+            this->getCreateBBinMap(instr.address + 4);
 		}
         if (strcmp(instr.opcName.c_str(), "bc") == 0)
         {
