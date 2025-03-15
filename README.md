@@ -18,8 +18,8 @@ Join the project [Discord][dis] server!
 - In "out/" folder open the LLVM360.sln 
 - If everything is good and i or you didn't messed up something, it should compile fine
 
-## Contributing ?!
-if u really want to contribute just make a fork and do a PR
+## Contributing
+if want to contribute, make a fork and a PR :} also join the discord server! 
 
 
 
