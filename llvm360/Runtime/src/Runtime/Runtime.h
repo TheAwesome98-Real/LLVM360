@@ -11,8 +11,6 @@
 #include <mutex>
 #include "../Graphics/ImGuiDebugger.h"
 
-#define DLL_API __declspec(dllexport)
-
 typedef struct {
     uint32_t xexAddress;
     void* funcPtr;
@@ -29,7 +27,6 @@ struct Instruction {
     }
 };
 
-
 struct XenonState {
     uint64_t LR;
     uint64_t CTR;
@@ -38,6 +35,10 @@ struct XenonState {
     uint32_t CR;
     uint64_t RR[32];
     double FR[32];
+
+	uint32_t gpr(uint32_t reg) {
+		return RR[reg];
+	}
 };
 
 struct EXPMD_Section
