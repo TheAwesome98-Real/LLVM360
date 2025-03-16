@@ -71,6 +71,20 @@ struct pDataInfo
     };
 };
 
+bool isInFuncBound(uint32_t addr)
+{
+    for (const auto& pair : g_irGen->m_function_map)
+    {
+        IRFunc* func = pair.second;
+        if (addr >= func->start_address && addr <= func->end_address)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 void flow_pData()
 {
     Section* pData = findSection(".pdata");
@@ -353,7 +367,7 @@ void flow_promoteTailProl(uint32_t start, uint32_t end)
         if (strcmp(instr.opcName.c_str(), "b") == 0)
         {
             uint32_t target = instr.address + signExtend(instr.ops[0], 24);
-            /*if (strcmp(instrAfter.opcName.c_str(), "nop") == 0)
+			if (strcmp(instrAfter.opcName.c_str(), "nop") == 0 && instr.ops[0] > 0x40) // treshold of distance to be considered a tail call
             {
                 // promote branched address to function if not in map
                 if (!g_irGen->isIRFuncinMap(target))
@@ -363,7 +377,7 @@ void flow_promoteTailProl(uint32_t start, uint32_t end)
                 }
                 start += 4;
                 continue;
-            }*/
+            }
 
             // it's a tail call 100%
             if (g_irGen->isIRFuncinMap(start + 4))
@@ -418,6 +432,48 @@ void flow_mtsprEpil(uint32_t start, uint32_t end)
     }
 }
 
+void flow_undiscovered(uint32_t start, uint32_t end)
+{
+    for (const auto& pair : g_irGen->m_function_map)
+    {
+       
+        IRFunc* func = pair.second;
+        if(func->end_address != 0)
+        {
+            uint32_t addr = func->end_address + 4;
+            if (addr - 4 == end) break;
+            while (strcmp(g_irGen->instrsList.at(addr).opcName.c_str(), "nop") == 0)
+            {
+                addr += 4;
+            }
+
+            if (!g_irGen->isIRFuncinMap(addr) && !isInFuncBound(addr))
+            {
+                printf("{flow_undiscovered} Found new function at: %08X\n", addr);
+                g_irGen->getCreateFuncInMap(addr);
+            }
+        }
+    }
+    for (const auto& pair : g_irGen->m_function_map)
+    {
+
+        IRFunc* func = pair.second;
+        if (func->end_address == 0)
+        {
+            uint32_t addr = func->start_address + 4;
+            while (!g_irGen->isIRFuncinMap(addr))
+            {
+                if (addr == end)
+                {
+                    func->end_address = addr;
+                    return;
+                }
+                addr += 4;
+            }
+			func->end_address = addr - 4;
+        }
+    }
+}
 
 void flow_bclrAndTailEpil(uint32_t start, uint32_t end)
 {
