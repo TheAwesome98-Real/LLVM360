@@ -5,7 +5,8 @@
 // Windows Header Files
 #include <windows.h>
 
-
+#include "Runtime/Xen/XenUtils.h"
+#include "Runtime/Xen/XboxKrnl_Entry.h"
 #include "Runtime/Runtime.h"
 #include "pch.h"
 #include <cstdint>

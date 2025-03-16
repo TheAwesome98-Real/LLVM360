@@ -66,6 +66,12 @@ struct BeField
         return swap(value);
     }
 
+    BeField& operator+(T v)
+    {
+        set(value + v);
+        return *this;
+    }
+
     BeField& operator=(T v)
     {
         set(v);
@@ -75,6 +81,11 @@ struct BeField
     // https://github.com/xenia-canary/xenia-canary/blob/8926bdcdd695bcf7f8f95938f0e44c59fbf9be14/src/xenia/base/byte_order.h#L62
     static T swap(T value)
     {
+        if (std::is_same_v<T, uint16_t>)
+        {
+            const uint16_t swapped = ByteSwap16(*reinterpret_cast<uint16_t*>(&value));
+            return *reinterpret_cast<const T*>(&swapped);
+        }
         else if (std::is_same_v<T, uint32_t>)
         {
             const uint32_t swapped = ByteSwap32(*reinterpret_cast<uint32_t*>(&value));
@@ -97,10 +108,11 @@ struct BeField
         }
         else
         {
+			printf("SWAP: Unsupported type\n");
             static_assert(std::is_integral_v<T>, "Unsupported type");
             DebugBreak();
             exit(1);
-            }
+        }
     }
 };
 
@@ -156,4 +168,23 @@ extern "C"
 		printf("-------- {HandleBcctrl} ERROR: NO FUNCTION AT: %u \n", ctx->CTR);
 		return;
 	}
+
+    DLL_API void DebugCallBack(XenonState* ctx, uint32_t addr, char* name)
+    {
+        // update atomic values to callback the debugger and update
+        /*g_mutex.lock();
+        g_continue = false;
+        g_dBUpdating = true;
+        g_dBlist.push_back(addr);
+        g_mutex.unlock();
+        while (g_continue)
+        {
+            Sleep(1);
+        }*/
+        if (IsDebuggerPresent() && false)
+        {
+            DebugBreak();
+        }
+
+    }
 }

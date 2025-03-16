@@ -100,27 +100,6 @@ void deserialize(const std::string& filename, std::unordered_map<uint32_t, Instr
 
 std::mutex g_mutex;
 
-extern "C"
-{
-	DLL_API void DebugCallBack(XenonState* ctx, uint32_t addr, char* name)
-    {
-		// update atomic values to callback the debugger and update
-		/*g_mutex.lock();
-		g_continue = false;
-        g_dBUpdating = true;
-		g_dBlist.push_back(addr);
-		g_mutex.unlock();
-        while (g_continue)
-        {
-            Sleep(1);
-        }*/
-        if(IsDebuggerPresent())
-        {
-            DebugBreak();
-        }
-    		
-    }
-}
 
 
 class XRuntime
