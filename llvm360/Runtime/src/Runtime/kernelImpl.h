@@ -17,7 +17,7 @@ extern "C"
 			{
 
 
-				//create a new thread and call ImGuiDebugger::getInstance().initialize(nullptr);
+				/*/create a new thread and call ImGuiDebugger::getInstance().initialize(nullptr);
 				ImGuiDebugger::g_debugger->initialize();
 				std::thread imguiThread([]() {
 					printf("Starting ImGui Thread\n");
@@ -27,7 +27,7 @@ extern "C"
 					});
 				std::this_thread::sleep_for(std::chrono::seconds(1));
 
-				imguiThread.detach();
+				imguiThread.detach();*/
 
 			}
 
@@ -37,7 +37,7 @@ extern "C"
 		return 1;
 	}
 
-	DLL_API void RtlInitAnsiString()
+	DLL_API void RtlInitAnsiString(XenonState* ctx, uint32_t lr)
 	{
 		printf("\n{RtlInitAnsiString}  Hello, Xbox 360!\n\n");
 		return;

@@ -20,7 +20,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
     case DLL_PROCESS_DETACH:
     {
         
-        printf("---- Main Thread ----");
+        printf("---- Main Thread ----\n");
         printf("LR:  %016llX\n", XRuntime::g_runtime->mainThreadState->LR);
         printf("CR:  %08llX\n", XRuntime::g_runtime->mainThreadState->CR);
         printf("XER: %08llX\n", XRuntime::g_runtime->mainThreadState->XER);

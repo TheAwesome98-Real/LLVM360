@@ -40,8 +40,24 @@ struct XenonState {
     double FR[32];
 };
 
+struct EXPMD_Section
+{
+    uint32_t dat_offset;
+    uint32_t size;
+    uint32_t flags;
+    std::string sec_name;
+    uint8_t* data;
+};
 
-
+struct EXPMD_Header
+{
+    uint32_t magic;
+    uint32_t version;
+    uint32_t flags;
+	uint32_t baseAddress;
+    uint32_t numSections;
+    EXPMD_Section** sections;
+};
 
 
 void deserialize(const std::string& filename, std::unordered_map<uint32_t, Instruction>& map) 
@@ -97,7 +113,11 @@ extern "C"
         {
             Sleep(1);
         }*/
-		DebugBreak();
+        if(IsDebuggerPresent())
+        {
+            DebugBreak();
+        }
+    		
     }
 }
 
@@ -106,12 +126,13 @@ class XRuntime
 {
 public:
 	void init();
-
+	void importMetadata(const char* path);
+	void allocateSectionsData();
 
     typedef XenonState** (__cdecl* getXCtxAddressFunc)();
     getXCtxAddressFunc g_initTLS;
     HMODULE g_exeModule;
-
+	EXPMD_Header* m_metadata;
 
     XenonState* mainThreadState;
     uint8_t* mainStack;

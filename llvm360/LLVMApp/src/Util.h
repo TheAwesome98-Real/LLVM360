@@ -40,6 +40,7 @@ struct EXPMD_Section
 	uint32_t dat_offset;
     uint32_t size;
 	uint32_t flags;
+	uint32_t nameLength;
 	std::string sec_name;
 	uint8_t* data;
 };
@@ -49,6 +50,7 @@ struct EXPMD_Header
     uint32_t magic;
 	uint32_t version;
 	uint32_t flags;
+	uint32_t baseAddress;
 	uint32_t numSections;
 	EXPMD_Section** sections;
 };
@@ -351,7 +353,7 @@ void flow_promoteTailProl(uint32_t start, uint32_t end)
         if (strcmp(instr.opcName.c_str(), "b") == 0)
         {
             uint32_t target = instr.address + signExtend(instr.ops[0], 24);
-            if (strcmp(instrAfter.opcName.c_str(), "nop") == 0)
+            /*if (strcmp(instrAfter.opcName.c_str(), "nop") == 0)
             {
                 // promote branched address to function if not in map
                 if (!g_irGen->isIRFuncinMap(target))
@@ -361,7 +363,7 @@ void flow_promoteTailProl(uint32_t start, uint32_t end)
                 }
                 start += 4;
                 continue;
-            }
+            }*/
 
             // it's a tail call 100%
             if (g_irGen->isIRFuncinMap(start + 4))
@@ -441,10 +443,21 @@ void flow_bclrAndTailEpil(uint32_t start, uint32_t end)
                 Instruction instrAfter = g_irGen->instrsList.at(start + 4);
                 if (strcmp(instr.opcName.c_str(), "b") == 0)
                 {
+
+					
+                    
+
+
+
                     uint32_t target = instr.address + signExtend(instr.ops[0], 24);
                     if (strcmp(instrAfter.opcName.c_str(), "nop") == 0)
                     {
-                        func->end_address = start;
+                        uint32_t offf = start + 4;
+                        while (!g_irGen->isIRFuncinMap(offf))
+                        {
+                            offf += 4;
+                        }
+                        func->end_address = offf - 4;
                         printf("{flow_bclrAndTailEpil} Found new end of function bounds at: %08X\n", func->end_address);
                         break;
                     }

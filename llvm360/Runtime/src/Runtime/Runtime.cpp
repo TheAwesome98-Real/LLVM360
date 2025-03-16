@@ -71,8 +71,92 @@ void initMainThread(XRuntime* run)
     }
 }
 
+
+void XRuntime::importMetadata(const char* path)
+{
+	std::ifstream ifs(path, std::ios::binary);
+	if (!ifs.is_open()) {
+		printf("Error opening file for reading\n");
+		return;
+	}
+
+	EXPMD_Header header;
+	ifs.read(reinterpret_cast<char*>(&header.magic), sizeof(uint32_t));
+	ifs.read(reinterpret_cast<char*>(&header.version), sizeof(uint32_t));
+	ifs.read(reinterpret_cast<char*>(&header.flags), sizeof(uint32_t));
+	ifs.read(reinterpret_cast<char*>(&header.baseAddress), sizeof(uint32_t));
+	ifs.read(reinterpret_cast<char*>(&header.numSections), sizeof(uint32_t));
+	header.sections = new EXPMD_Section * [header.numSections];
+
+	if (header.magic != 0x54535338)
+	{
+		printf("Invalid metadata file\n");
+		return;
+	}
+
+    for (size_t i = 0; i < header.numSections; i++)
+    {
+        EXPMD_Section* sec = new EXPMD_Section;
+		ifs.read(reinterpret_cast<char*>(&sec->dat_offset), sizeof(uint32_t));
+		ifs.read(reinterpret_cast<char*>(&sec->size), sizeof(uint32_t));
+		ifs.read(reinterpret_cast<char*>(&sec->flags), sizeof(uint32_t));
+		uint32_t nameLength;
+		ifs.read(reinterpret_cast<char*>(&nameLength), sizeof(uint32_t));
+		sec->sec_name.resize(nameLength);
+		ifs.read(&sec->sec_name[0], nameLength);
+		sec->data = new uint8_t[sec->size];
+		ifs.read(reinterpret_cast<char*>(sec->data), sec->size);
+		header.sections[i] = sec;
+    }
+
+	// copy the data in the &header to m_metadata otherwise it will be stripped
+	m_metadata = new EXPMD_Header;
+	*m_metadata = header;
+}
+void XRuntime::allocateSectionsData()
+{
+	if (!m_metadata)
+	{
+		printf("No metadata found\n");
+		return;
+	}
+
+    size_t allocationSize = 0;
+
+    for (size_t i = 0; i < m_metadata->numSections; i++)
+    {
+        if (i == 0)
+        {
+            allocationSize = m_metadata->sections[i]->dat_offset;
+            continue;
+        }
+
+        if(m_metadata->sections[i]->dat_offset > m_metadata->sections[i - 1]->dat_offset)
+        {
+            allocationSize = m_metadata->sections[i]->dat_offset;
+        }
+    }
+
+    void* baseAddr = VirtualAlloc(reinterpret_cast<void*>(m_metadata->baseAddress), allocationSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	if (!baseAddr || (uint32_t)baseAddr != m_metadata->baseAddress)
+	{
+		printf("Failed to reserve memory\n");
+		return;
+	}
+
+	for (size_t i = 0; i < m_metadata->numSections; i++)
+	{
+		EXPMD_Section* sec = m_metadata->sections[i];
+        memcpy((void*)((uint32_t)baseAddr + sec->dat_offset), sec->data, sec->size);
+        printf("Allocated section memory at %08llX\n", (uint32_t)baseAddr + sec->dat_offset);
+	}
+}
+
 void XRuntime::init()
 {
+    importMetadata("MD.tss");
+    allocateSectionsData();
+
     g_exeModule = GetModuleHandleW(NULL);
     if (g_exeModule)
     {

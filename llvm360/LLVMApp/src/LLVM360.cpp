@@ -51,8 +51,9 @@ void exportMetadata(const char* path)
 {
 	EXPMD_Header header;
 	header.magic = 0x54535338;
-	header.version = 1; 
+	header.version = 3; 
 	header.flags = 0;
+	header.baseAddress = loadedXex->GetBaseAddress();
 	header.numSections = loadedXex->GetNumSections();
 	header.sections = new EXPMD_Section * [header.numSections];
     
@@ -60,7 +61,7 @@ void exportMetadata(const char* path)
 	{
 		Section* section = loadedXex->GetSection(i);
 		EXPMD_Section* sec = new EXPMD_Section();
-		sec->dat_offset = loadedXex->GetBaseAddress() + section->GetVirtualOffset();
+		sec->dat_offset = section->GetVirtualOffset();
 		sec->size = section->GetVirtualSize();
 		sec->flags = 0;
 		sec->sec_name = (char*)section->GetName().c_str();
@@ -87,6 +88,7 @@ void exportMetadata(const char* path)
 	binFile.write(reinterpret_cast<const char*>(&header.magic), sizeof(uint32_t));
     binFile.write(reinterpret_cast<const char*>(&header.version), sizeof(uint32_t));
     binFile.write(reinterpret_cast<const char*>(&header.flags), sizeof(uint32_t));
+    binFile.write(reinterpret_cast<const char*>(&header.baseAddress), sizeof(uint32_t));
     binFile.write(reinterpret_cast<const char*>(&header.numSections), sizeof(uint32_t));
 
     for (uint32_t i = 0; i < header.numSections; i++)
@@ -95,6 +97,8 @@ void exportMetadata(const char* path)
         binFile.write(reinterpret_cast<const char*>(&sec.dat_offset), sizeof(uint32_t));
         binFile.write(reinterpret_cast<const char*>(&sec.size), sizeof(uint32_t));
         binFile.write(reinterpret_cast<const char*>(&sec.flags), sizeof(uint32_t));
+		uint32_t nameLength = sec.sec_name.size();
+		binFile.write(reinterpret_cast<const char*>(&nameLength), sizeof(uint32_t));
         binFile.write(sec.sec_name.c_str(), sec.sec_name.size());
         binFile.write(reinterpret_cast<char*>(sec.data), sec.size);
     }
