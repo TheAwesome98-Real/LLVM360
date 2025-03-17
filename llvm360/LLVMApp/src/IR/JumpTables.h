@@ -22,43 +22,6 @@ static const std::array<JTVariant, JTVariantEnum::ENUM_SIZE> jtVariantTypes = {
 };
 
 
-/*uint32_t pOffset;
-    ppc_insn insn;
-    auto* code = (uint32_t*)image.Find(table.base);
-    ppc::Disassemble(code, table.base, insn);
-    pOffset = insn.operands[1] << 16;
-
-    ppc::Disassemble(code + 1, table.base + 4, insn);
-    pOffset += insn.operands[2];
-
-    if (table.type == SWITCH_ABSOLUTE)
-    {
-        const auto* offsets = (be<uint32_t>*)image.Find(pOffset);
-        for (size_t i = 0; i < table.labels.size(); i++)
-        {
-            table.labels[i] = offsets[i];
-        }
-    }
-    else if (table.type == SWITCH_COMPUTED)
-    {
-        uint32_t base;
-        uint32_t shift;
-        const auto* offsets = (uint8_t*)image.Find(pOffset);
-
-        ppc::Disassemble(code + 4, table.base + 0x10, insn);
-        base = insn.operands[1] << 16;
-
-        ppc::Disassemble(code + 5, table.base + 0x14, insn);
-        base += insn.operands[2];
-
-        ppc::Disassemble(code + 3, table.base + 0x0C, insn);
-        shift = insn.operands[2];
-
-        for (size_t i = 0; i < table.labels.size(); i++)
-        {
-            table.labels[i] = base + (offsets[i] << shift);
-        }
-    }*/
 
 // Define a jump table inside a function
 // `targets` are the addresses of the cases, index 0 is always the default case
@@ -76,8 +39,6 @@ public:
 		
 		findTargetsSize(irGen);
 		
-        
-        
         switch (variant.type)
         {
         case COMPUTED_TABLE_0:
