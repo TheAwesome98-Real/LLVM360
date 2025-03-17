@@ -441,7 +441,7 @@ void flow_undiscovered(uint32_t start, uint32_t end)
         if(func->end_address != 0)
         {
             uint32_t addr = func->end_address + 4;
-            if (addr - 4 == end) break;
+            if (addr == end) break;
             while (strcmp(g_irGen->instrsList.at(addr).opcName.c_str(), "nop") == 0)
             {
                 addr += 4;
@@ -475,6 +475,45 @@ void flow_undiscovered(uint32_t start, uint32_t end)
     }
 }
 
+void flow_jumpTables(uint32_t start, uint32_t end)
+{
+	for (const auto& pair : g_irGen->m_function_map)
+	{
+		IRFunc* func = pair.second;
+
+        for (JTVariant variant : jtVariantTypes)
+        {
+			uint32_t addr = func->start_address;
+            while (addr <= func->end_address)
+            {
+                for (size_t i = 0; i < variant.pattern.size(); i++)
+                {
+                    uint32_t off = addr + (i * 4);
+                    Instruction instr = g_irGen->instrsList.at(off);
+                    if(!(strcmp(instr.opcName.c_str(), variant.pattern[i]) == 0))
+                    {
+						break;
+                    }
+					if (i == variant.pattern.size() - 1)
+					{
+						JumpTable* jt = new JumpTable();
+						jt->start_Address = addr;
+						jt->end_Address = addr + (variant.pattern.size() * 4);
+						jt->variant = variant;
+                        jt->ComputeTargets(func->m_irGen);
+						func->jumpTables.push_back(jt);
+						printf("{flow_jumpTables} Found new jump table at: %08X\n", addr);
+					}
+                }
+
+                addr += 4;
+            }
+        }
+
+        
+	}
+}
+
 void flow_bclrAndTailEpil(uint32_t start, uint32_t end)
 {
     for (const auto& pair : g_irGen->m_function_map)
@@ -485,9 +524,6 @@ void flow_bclrAndTailEpil(uint32_t start, uint32_t end)
             start = func->start_address;
             while (start < end)
             {
-                
-                
-
                 if (start == end - 4)
                 {
                     func->end_address = start;

@@ -164,6 +164,18 @@ public:
     return (uint32_t)m_sections.size();
   }
 
+  Section* getSectionByAddressBounds(uint32_t address)
+  {
+	  for (size_t i = 0; i < m_sections.size(); i++)
+	  {
+		  if (address >= m_sections[i]->GetVirtualOffset() + GetBaseAddress() && address < m_sections[i]->GetVirtualOffset() + m_sections[i]->GetVirtualSize() + GetBaseAddress())
+		  {
+			  return m_sections[i];
+		  }
+	  }
+	  return nullptr;
+  }
+
   inline Section *GetSection(const uint32_t index) const {
     return m_sections[index];
   }

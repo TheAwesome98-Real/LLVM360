@@ -2,6 +2,7 @@
 #include <string>
 #include <iomanip>
 #include "IRGenerator.h"
+#include "JumpTables.h"
 
 
 struct CodeBlock
@@ -35,4 +36,6 @@ public:
     // Metadata for bounds analyser
     //
     bool startW_MFSPR_LR;
+    bool has_jumpTable;
+	std::vector<JumpTable*> jumpTables;
 };

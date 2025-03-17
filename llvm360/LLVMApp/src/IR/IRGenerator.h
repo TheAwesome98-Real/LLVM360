@@ -67,34 +67,3 @@ public:
 };
 
 
-// Define a pseudo-instruction that will print as a comment.
-class CommentInst : public llvm::Instruction {
-public:
-    std::string CommentText;
-
-
-   
-
-
-    CommentInst(const std::string& Text, llvm::LLVMContext& Context)
-        : llvm::Instruction(llvm::Type::getInt32Ty(Context),
-            llvm::Instruction::UserOp1, /*OperandList=*/nullptr, 0),
-        CommentText(Text) {
-    }
-
-    CommentInst* clone() const 
-    {
-        return new CommentInst(CommentText, getContext());
-    }
-
-    
-    void print(llvm::raw_ostream& OS) const 
-    {
-        OS << "; " << CommentText;
-    }
-    void dump() const { print(llvm::errs()); }
-};
-
-
-
-

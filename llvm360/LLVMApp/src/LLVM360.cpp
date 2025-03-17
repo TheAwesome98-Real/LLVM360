@@ -224,6 +224,7 @@ bool pass_Flow()
 
         printf("\n-- prologue/epilogue second pass --\n");
         flow_undiscovered(address, endAddress);
+		flow_jumpTables(address, endAddress);
     }
 
     return ret;
