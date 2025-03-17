@@ -99,3 +99,10 @@ inline void unit_srawi(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops
 	instr.ops = ops;
 	srawi_e(instr, func);
 }
+
+inline void unit_cntlzw(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	cntlzw_e(instr, func);
+}

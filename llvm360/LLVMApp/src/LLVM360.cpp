@@ -118,16 +118,15 @@ void unitTest(IRGenerator* gen)
 
 	
 
-    /*li r4, 1
-        li r5, -1
-        divw r3, r4, r5
-        blr*/
-    //unit_li(func, gen, {4, 0, 0x7FFFFFFF});
-    unit_li(func, gen, { 11, 0, (uint32_t)7 });
+    /*li r5, 0
+  cntlzw r6, r5*/
+    /*unit_li(func, gen, {11, 0, (uint32_t)7});
     unit_li(func, gen, { 10, 0, (uint32_t)5 });
     unit_divw(func, gen, { 10, 11, 10 });
     unit_mulli(func, gen, { 10, 10, 5 });
-    unit_subf(func, gen, { 3, 10, 11 });
+    unit_subf(func, gen, { 3, 10, 11 });*/
+    unit_li(func, gen, { 5, 0, (uint32_t)-1 });
+	unit_cntlzw(func, gen, { 6, 5 });
     unit_bclr(func, gen, {});
     
 
@@ -421,8 +420,8 @@ int main()
     saveSection("rdata.bin", 0);
     //saveSection("../bin/Debug/data.bin", 3);
     exportMetadata("MD.tss");
-    
-    g_irGen->exportFunctionArray();
+    if(!isUnitTesting)
+        g_irGen->exportFunctionArray();
 
     // Stop the timer
     auto end = std::chrono::high_resolution_clock::now();

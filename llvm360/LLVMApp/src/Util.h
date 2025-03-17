@@ -503,6 +503,7 @@ void flow_jumpTables(uint32_t start, uint32_t end)
                         jt->ComputeTargets(func->m_irGen);
 						func->jumpTables.push_back(jt);
 						printf("{flow_jumpTables} Found new jump table at: %08X\n", addr);
+						func->has_jumpTable = true;
 					}
                 }
 

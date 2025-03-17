@@ -16,6 +16,7 @@
 #define i64_T BUILD->getInt64Ty()
 #define i32_T BUILD->getInt32Ty()
 #define i16_T BUILD->getInt16Ty()
+#define i8_T BUILD->getInt8Ty()
 #define i1_T BUILD->getInt1Ty()
 
 #define trcTo1(x) BUILD->CreateTrunc(x, BUILD->getInt1Ty(), "trc1")
@@ -28,6 +29,7 @@
 #define gprVal(x) BUILD->CreateLoad(BUILD->getInt64Ty(), func->getRegister("RR", x), "rrV")
 #define crVal() BUILD->CreateLoad(BUILD->getInt32Ty(), func->getRegister("CR"), "crV")
 #define xerVal() BUILD->CreateLoad(BUILD->getInt32Ty(), func->getRegister("XER"), "xerV")
+#define ctrVal() BUILD->CreateLoad(BUILD->getInt32Ty(), func->getRegister("CTR"), "ctrV")
 
 
 // ext
@@ -46,7 +48,7 @@
 
 inline void StoreCA(IRFunc* func, llvm::Value* ca)
 {
-    BUILD->CreateStore(BUILD->CreateOr(xerVal(), BUILD->CreateShl(zExt32(ca), 2, "shl")), func->getRegister("XER"));
+    BUILD->CreateStore(BUILD->CreateOr(xerVal(), BUILD->CreateShl(zExt32(ca), 2, "shl"), "or"), func->getRegister("XER"));
 }
 
 static inline uint64_t XEMASK(uint32_t mstart, uint32_t mstop) {
@@ -240,7 +242,7 @@ inline llvm::Value* getEA_Dword_displ(IRFunc* func, uint32_t displ, uint32_t gpr
 
 inline llvm::Value* getEA_regs(IRFunc* func, uint32_t gpr1, uint32_t gpr2)
 {
-    llvm::Value* ea = BUILD->CreateAdd(gprVal(gpr1), gprVal(gpr2), "ea");
+    llvm::Value* ea = trcTo32(BUILD->CreateAdd(gprVal(gpr1), gprVal(gpr2), "ea"));
     return BUILD->CreateIntToPtr(ea, i64_T->getPointerTo(), "addrPtr");
 }
 
@@ -263,7 +265,23 @@ inline void twi_e(Instruction instr, IRFunc* func)
 
 inline void bcctr_e(Instruction instr, IRFunc* func)
 {
-    // temp stub
+    if (func->has_jumpTable) 
+    {
+		for (JumpTable* table : func->jumpTables)
+		{
+            if (instr.address >= table->start_Address && instr.address <= table->end_Address)
+            {
+                llvm::SwitchInst* Switch = BUILD->CreateSwitch(ctrVal(), func->getCreateBBinMap(table->targets[0]), table->targets.size());
+                for (uint32_t target : table->targets)
+                {
+                    Switch->addCase(i32Const(target), func->getCreateBBinMap(target));
+                }
+            	return;
+            }
+		}
+    }
+
+
     DebugBreak();
     return;
 }
@@ -517,6 +535,12 @@ inline void lhz_e(Instruction instr, IRFunc* func)
 }
 
 
+inline void lbzx_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* loadedValue = BUILD->CreateLoad(i8_T, getEA_regs(func, instr.ops[1], instr.ops[2]), "ld");
+    BUILD->CreateStore(zExt64(loadedValue), func->getRegister("RR", instr.ops[0]));
+}
+
 inline void sth_e(Instruction instr, IRFunc* func)
 {
     //EA is the sum (rA|0) + d. The contents of the low-order 16 bits of rS are stored into the half word in memory
@@ -585,8 +609,8 @@ inline void srawi_e(Instruction instr, IRFunc* func)
             ca = BUILD->CreateAnd(BUILD->CreateICmpSLT(v, i32Const(0), "slt"), trcTo1(v), "and");
         }
         else {
-            ca = BUILD->CreateAnd(BUILD->CreateICmpSLT(v, i32Const(0)),
-                BUILD->CreateICmpNE(BUILD->CreateAnd(v, i32Const(mask), "and"), BUILD->getFalse()));
+            ca = BUILD->CreateAnd(BUILD->CreateICmpSLT(v, i32Const(0), "slt"),
+                BUILD->CreateICmpNE(BUILD->CreateAnd(v, i32Const(mask), "and"), i32Const(0), "cmp"), "and");
         }
 
         //v = f.Sha(v, (int8_t)instr.ops[2]), v = sExt64(v);
@@ -601,6 +625,14 @@ inline void srawi_e(Instruction instr, IRFunc* func)
     }*/
 }
 
+// AHHHHHHH instrinsic
+inline void cntlzw_e(Instruction instr, IRFunc* func)
+{
+    llvm::Function* CtlzFunc = llvm::Intrinsic::getDeclaration(func->m_irGen->m_module, llvm::Intrinsic::ctlz, { i32_T });
+    llvm::Value* IsZeroUndef = i1Const(false);  // Do not allow undef
+    llvm::Value* LeadingZeros = BUILD->CreateCall(CtlzFunc, { trcTo32(gprVal(instr.ops[1])), IsZeroUndef}, "call");
+    BUILD->CreateStore(LeadingZeros, func->getRegister("RR", instr.ops[0]));
+}
 
 //
 //// bitwise operators
@@ -632,21 +664,43 @@ inline void andc_e(Instruction instr, IRFunc* func)
     BUILD->CreateStore(andResult, func->getRegister("RR", instr.ops[0]));
 }
 
+inline void andiRC_e(Instruction instr, IRFunc* func)
+{
+    auto andResult = BUILD->CreateAnd(gprVal(instr.ops[1]), zExt64(i16Const(instr.ops[2])), "and");
+    BUILD->CreateStore(andResult, func->getRegister("RR", instr.ops[0]));
+
+    llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(andResult, i64Const(0), "lt"));
+    llvm::Value* GT = zExt32(BUILD->CreateICmpSGT(andResult, i64Const(0), "gt"));
+    llvm::Value* EQ = zExt32(BUILD->CreateICmpEQ(andResult, i64Const(0), "eq"));
+    // TODO
+    llvm::Value* SO_bit = i32Const(0);
+    llvm::Value* field = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
+
+    setCRField(func, 0, field);
+}
+
 inline void xor_e(Instruction instr, IRFunc* func)
 {
     auto xorResult = BUILD->CreateXor(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "xor");
     BUILD->CreateStore(xorResult, func->getRegister("RR", instr.ops[0]));
 }
 
+inline void xori_e(Instruction instr, IRFunc* func)
+{
+    auto xorResult = BUILD->CreateXor(gprVal(instr.ops[1]), zExt64(i16Const( instr.ops[2])), "xor");
+    BUILD->CreateStore(xorResult, func->getRegister("RR", instr.ops[0]));
+}
+
 inline void neg_e(Instruction instr, IRFunc* func)
 {
     llvm::Value* negVal = BUILD->CreateNeg(gprVal(instr.ops[1]), "neg");
-
-    // overflow detection: if (rA == MIN_INT) then OV = 1
-    //llvm::Value* minInt = BUILD->getInt64(0x8000000000000000);
-    //llvm::Value* isOverflow = BUILD->CreateICmpEQ(rA, minInt, "overflow_check");
-    //llvm::Value* OV = BUILD->CreateSelect(OE, isOverflow, Builder.getInt1(false), "OV_flag");
     BUILD->CreateStore(negVal, func->getRegister("RR", instr.ops[0]));
+}
+
+inline void nor_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* norVal = BUILD->CreateNeg(BUILD->CreateOr(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "or"), "neg");
+    BUILD->CreateStore(norVal, func->getRegister("RR", instr.ops[0]));
 }
 
 

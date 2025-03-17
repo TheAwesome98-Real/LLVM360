@@ -181,7 +181,7 @@ extern "C"
         {
             Sleep(1);
         }*/
-        if (IsDebuggerPresent() && false)
+        if (IsDebuggerPresent() && true)
         {
             DebugBreak();
         }

@@ -185,7 +185,7 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
     }
 
         // <name>_e = <name>_emitter
-        static std::unordered_map<std::string, std::function<void(Instruction, IRFunc*)>>
+    static std::unordered_map<std::string, std::function<void(Instruction, IRFunc*)>>
         instructionMap =
     {
          {"nop", nop_e },
@@ -227,6 +227,12 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"cmplwi", cmpli_e},
          {"mulli", mulli_e},
          {"std", std_e},
+         {"lbzx", lbzx_e},
+         {"bcctr", bcctr_e},
+         {"xori", xori_e},
+         {"nor", nor_e},
+         {"cntlzw", cntlzw_e},
+         {"andiRC", andiRC_e},
     };
 
 
