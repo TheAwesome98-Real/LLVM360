@@ -91,7 +91,7 @@ bool IRFunc::EmitFunction()
                     return 1;
                 }
 
-                if (blockIdx == block->end && strcmp(instr.opcName.c_str(), "bclr") != 0)
+                if (blockIdx != this->end_address && blockIdx == block->end && strcmp(instr.opcName.c_str(), "bclr") != 0 )
                 {
                     m_irGen->m_builder->CreateBr(codeBlocks.at(block->end + 4)->bb_Block);
                 }

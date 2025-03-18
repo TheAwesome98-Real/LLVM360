@@ -116,17 +116,13 @@ void unitTest(IRGenerator* gen)
     // code
     //
 
-	
+    /*#_ REGISTER_IN r3 0x0000000200000000
+  #_ REGISTER_IN r4 0x0000000100000000*/
 
-    /*li r5, 0
-  cntlzw r6, r5*/
-    /*unit_li(func, gen, {11, 0, (uint32_t)7});
-    unit_li(func, gen, { 10, 0, (uint32_t)5 });
-    unit_divw(func, gen, { 10, 11, 10 });
-    unit_mulli(func, gen, { 10, 10, 5 });
-    unit_subf(func, gen, { 3, 10, 11 });*/
-    unit_li(func, gen, { 5, 0, (uint32_t)-1 });
-	unit_cntlzw(func, gen, { 6, 5 });
+    unit_li(func, gen, { 3, 0, (uint32_t)0x1 });
+    unit_li(func, gen, { 4, 0, (uint32_t)0x2 });
+    unit_cmplw(func, gen, { 3, 0, 3, 4 });
+	unit_mfcr(func, gen, { 12 });
     unit_bclr(func, gen, {});
     
 
@@ -175,6 +171,10 @@ bool pass_Flow()
 {
     bool ret = true;
 
+	if (isUnitTesting)
+	{
+		return true;
+	}
     patchImportsFunctions();
     flow_pData();  // search pData
 
@@ -222,8 +222,9 @@ bool pass_Flow()
         flow_bclrAndTailEpil(address, endAddress);
 
         printf("\n-- prologue/epilogue second pass --\n");
-        flow_undiscovered(address, endAddress);
+        //flow_undiscovered(address, endAddress);
 		flow_jumpTables(address, endAddress);
+		flow_detectIncomplete(address, endAddress);
     }
 
     return ret;

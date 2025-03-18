@@ -15,10 +15,10 @@
 #include <IR/IRFunc.h>
 
 // Debug
-bool printINST = true;
-bool printFile = false;  // Set this flag to true or false based on your preference
+bool printINST = false;
+bool printFile = false; 
 bool genLLVMIR = true;
-bool isUnitTesting = false;
+bool isUnitTesting = true;
 bool doOverride = false; // if it should override the endAddress to debug
 bool dbCallBack = true; // enables debug callbacks, break points etc
 uint32_t overAddr = 0x82060150;
@@ -441,7 +441,7 @@ void flow_undiscovered(uint32_t start, uint32_t end)
         if(func->end_address != 0)
         {
             uint32_t addr = func->end_address + 4;
-            if (addr == end) break;
+            if (g_irGen->instrsList.find(addr) == g_irGen->instrsList.end()) break;
             while (strcmp(g_irGen->instrsList.at(addr).opcName.c_str(), "nop") == 0)
             {
                 addr += 4;
@@ -480,7 +480,7 @@ void flow_jumpTables(uint32_t start, uint32_t end)
 	for (const auto& pair : g_irGen->m_function_map)
 	{
 		IRFunc* func = pair.second;
-
+        if (func->emission_done) continue;
         for (JTVariant variant : jtVariantTypes)
         {
 			uint32_t addr = func->start_address;
@@ -513,6 +513,18 @@ void flow_jumpTables(uint32_t start, uint32_t end)
 
         
 	}
+}
+
+void flow_detectIncomplete(uint32_t start, uint32_t end)
+{
+    for (const auto& pair : g_irGen->m_function_map)
+    {
+        IRFunc* func = pair.second;
+        if (func->end_address == 0)
+        {
+            DebugBreak();
+        }
+    }
 }
 
 void flow_bclrAndTailEpil(uint32_t start, uint32_t end)

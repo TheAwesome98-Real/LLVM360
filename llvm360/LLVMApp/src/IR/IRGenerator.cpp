@@ -191,6 +191,7 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"nop", nop_e },
          {"twi", twi_e },
          {"mfspr", mfspr_e },
+         {"mfcr", mfcr_e}, //
          {"stw", stw_e },
          {"stwu", stwu_e },
          {"lis", addis_e }, // it's a simplified mnemonic
@@ -198,6 +199,7 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"li", addi_e },
          {"addi", addi_e },
          {"lwz", lwz_e },
+	     {"lwzu", lwzu_e },
          {"lwzx", lwzx_e},
          {"mtspr", mtspr_e },
          {"or", orx_e },
@@ -227,12 +229,23 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"cmplwi", cmpli_e},
          {"mulli", mulli_e},
          {"std", std_e},
+         {"lbz", lbz_e},
+         {"lbzu", lbzu_e},
          {"lbzx", lbzx_e},
          {"bcctr", bcctr_e},
          {"xori", xori_e},
          {"nor", nor_e},
          {"cntlzw", cntlzw_e},
          {"andiRC", andiRC_e},
+         {"stb", stb_e},
+         {"extsb", extsb_e}, //
+         {"extsbRC", extsb_e}, //
+         {"cmplw", cmpl_e}, //
+         {"ld", ld_e},
+         {"adde", adde_e},
+         {"addicRC", addicRC_e}, //
+         {"slw", slw_e}, //
+         {"adde", adde_e}, //
     };
 
 

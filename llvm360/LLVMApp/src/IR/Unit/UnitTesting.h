@@ -106,3 +106,53 @@ inline void unit_cntlzw(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> op
 	instr.ops = ops;
 	cntlzw_e(instr, func);
 }
+
+inline void unit_slw(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	slw_e(instr, func);
+}
+
+inline void unit_mfcr(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	mfcr_e(instr, func);
+}
+
+inline void unit_adde(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	adde_e(instr, func);
+}
+
+inline void unit_addicRC(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	addicRC_e(instr, func);
+}
+
+inline void unit_extsb(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	extsb_e(instr, func);
+}
+
+inline void unit_extsbRC(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	instr.opcName = "extsbRC";
+	extsb_e(instr, func);
+}
+
+inline void unit_cmplw(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	cmpl_e(instr, func);
+}
