@@ -190,6 +190,7 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
     {
          {"nop", nop_e },
          {"twi", twi_e },
+         {"tdi", tdi_e},
          {"mfspr", mfspr_e },
          {"mfcr", mfcr_e}, //
          {"stw", stw_e },
@@ -199,21 +200,28 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"li", addi_e },
          {"addi", addi_e },
          {"lwz", lwz_e },
-	     {"lwzu", lwzu_e },
+         {"lwzu", lwzu_e },
          {"lwzx", lwzx_e},
          {"mtspr", mtspr_e },
          {"or", orx_e },
+         {"orRC", orx_e},
          {"sth", sth_e },
+         {"sthu", sthu_e},
+         {"sthx", sthx_e},
          {"b", b_e },
          {"bl", bl_e },
          {"bclr", bclr_e },
          {"bcctrl", bcctrl_e},
          {"lhz", lhz_e },
+         {"lhzu", lhzu_e},
+         {"lha", lha_e},
+         {"lhzx", lhzx_e},
          {"cmpw", cmpw_e},
          {"bc", bcx_e},
          {"add", add_e},
          {"ori", ori_e},
-         {"cmpwi", cmpwi_e},
+         {"cmpwi", cmpi_e},
+         {"cmpdi", cmpi_e},
          {"neg", neg_e},
          {"and", and_e},
          {"xor", xor_e},
@@ -224,11 +232,14 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"divw", divwx_e},
          {"andc", andc_e},
          {"subf", subf_e},
+         {"subfe", subfe_e},
          {"subfRC", subf_e},
+         {"subfeRC", subfe_e},
          {"stwx", stwx_e},
          {"cmplwi", cmpli_e},
          {"mulli", mulli_e},
          {"std", std_e},
+         {"stdu", stdu_e},
          {"lbz", lbz_e},
          {"lbzu", lbzu_e},
          {"lbzx", lbzx_e},
@@ -238,14 +249,32 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"cntlzw", cntlzw_e},
          {"andiRC", andiRC_e},
          {"stb", stb_e},
+         {"stbu", stbu_e},
+         {"extsw", extsw_e},
+         {"extswRC", extsw_e},
+         {"extsh", extsh_e}, 
+         {"extshRC", extsh_e}, 
          {"extsb", extsb_e}, //
          {"extsbRC", extsb_e}, //
          {"cmplw", cmpl_e}, //
          {"ld", ld_e},
-         {"adde", adde_e},
-         {"addicRC", addicRC_e}, //
+         {"adde", adde_e}, //
+         {"addic", addic_e},
+         {"addicRC", addic_e}, //
          {"slw", slw_e}, //
          {"adde", adde_e}, //
+         {"addze", addze_e},
+         {"addzeRC", addze_e},
+         {"oris", oris_e},
+         {"rlwimi", rlwimi_e},
+         {"subfic", subfic_e},
+         {"rldicl", rldicl_e},
+         {"lwa", lwa_e},
+         {"divdu", divdu_e},
+         {"divwu", divwux_e},
+         {"mulld", mulld_e},
+
+         {"cmpldi", cmpli_e},
     };
 
 
@@ -256,9 +285,7 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
         printf("Instruction:   %s  not Implemented\n", instr.opcName.c_str());
   }
 
-  printf("----IR DUMP----\n\n\n");
-  llvm::raw_fd_ostream& out = llvm::outs();
-  m_module->print(out, nullptr);
+  writeIRtoFile();
 
   return false;
 }
@@ -271,8 +298,12 @@ void IRGenerator::writeIRtoFile()
     
 
     printf("----IR DUMP----\n\n\n");
-    llvm::raw_fd_ostream& out = llvm::outs();
-    m_module->print(out, nullptr);
+    if (m_dumpIRConsole)
+    {
+        llvm::raw_fd_ostream& out = llvm::outs();
+        m_module->print(out, nullptr);
+    }
+    
 
     std::error_code EC;
     llvm::raw_fd_ostream OS("../../bin/Debug/output.ll", EC);

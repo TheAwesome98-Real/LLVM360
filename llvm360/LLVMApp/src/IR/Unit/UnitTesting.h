@@ -58,6 +58,13 @@ inline void unit_divw(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
 	divwx_e(instr, func);
 }
 
+inline void unit_divdu(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	divdu_e(instr, func);
+}
+
 inline void unit_mulli(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
 {
 	Instruction instr;
@@ -132,7 +139,15 @@ inline void unit_addicRC(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> o
 {
 	Instruction instr;
 	instr.ops = ops;
-	addicRC_e(instr, func);
+	instr.opcName = "addicRC";
+	addic_e(instr, func);
+}
+
+inline void unit_addic(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	addic_e(instr, func);
 }
 
 inline void unit_extsb(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
@@ -155,4 +170,46 @@ inline void unit_cmplw(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops
 	Instruction instr;
 	instr.ops = ops;
 	cmpl_e(instr, func);
+}
+
+inline void unit_rlwimi(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	rlwimi_e(instr, func);
+}
+
+inline void unit_ori(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	ori_e(instr, func);
+}
+
+inline void unit_oris(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	oris_e(instr, func);
+}
+
+inline void unit_rldicl(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	rldicl_e(instr, func);
+}
+
+inline void unit_cmpdi(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	cmpi_e(instr, func);
+}
+
+inline void unit_cmpwi(IRFunc* func, IRGenerator* gen, std::vector<uint32_t> ops)
+{
+	Instruction instr;
+	instr.ops = ops;
+	cmpi_e(instr, func);
 }

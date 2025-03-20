@@ -5,11 +5,13 @@
 
 static const std::vector<const char*> COMPUTED_TABLE_0_pattern = { "lis", "addi", "lbzx", "rlwinm", "lis", "ori", "addi", "add", "mtspr", "bcctr" };
 static const std::vector<const char*> OFFSET_TABLE_0_pattern = { "lis", "addi", "lbzx", "lis", "ori", "addi", "ori", "add", "mtspr", "bcctr" };
+static const std::vector<const char*> WORDOFFSET_TABLE_0_pattern = { "lis", "rlwinm", "addi", "lhzx", "lis", "addi", "ori", "add", "mtspr", "bcctr" };
 
 enum JTVariantEnum
 {
     COMPUTED_TABLE_0,
     OFFSET_TABLE_0,
+    WORDOFFSET_TABLE_0,
     ENUM_SIZE
 };
 
@@ -22,9 +24,13 @@ struct JTVariant
 static const std::array<JTVariant, JTVariantEnum::ENUM_SIZE> jtVariantTypes = {
     JTVariant{COMPUTED_TABLE_0, COMPUTED_TABLE_0_pattern},
     JTVariant{OFFSET_TABLE_0, OFFSET_TABLE_0_pattern},
+    JTVariant{WORDOFFSET_TABLE_0, WORDOFFSET_TABLE_0_pattern},
 };
 
-
+inline uint16_t ByteSwap16(uint16_t value)
+{
+    return (value << 8) | (value >> 8);
+}
 
 // Define a jump table inside a function
 // `targets` are the addresses of the cases, index 0 is always the default case
@@ -93,6 +99,33 @@ public:
             for (size_t i = 1; i < numTargets; i++)
             {
                 targets.push_back(baseAddr + offsets[i]);
+            }
+            break;
+        }
+
+        case WORDOFFSET_TABLE_0:
+        {
+            uint32_t off = 0;
+            Instruction instr = irGen->instrsList.at(start_Address);
+            off = instr.ops[2] << 16;
+            instr = irGen->instrsList.at(start_Address + 8); // addi
+            off += instr.ops[2];
+
+            Section* sec = irGen->m_xexImage->getSectionByAddressBounds(off);
+            const uint8_t* m_imageDataPtr = (const uint8_t*)sec->GetImage()->GetMemory() + (sec->GetVirtualOffset() - sec->GetImage()->GetBaseAddress());
+            // uint16_t
+            const uint8_t* offsets = (uint8_t*)m_imageDataPtr + off - sec->GetVirtualOffset();
+            const uint16_t* wordOffsets = reinterpret_cast<const uint16_t*>(offsets);
+
+            instr = irGen->instrsList.at(start_Address + (4 * 4));  // lis
+            uint32_t baseAddr = instr.ops[2] << 16;
+            instr = irGen->instrsList.at(start_Address + (5 * 4));  // addi
+            baseAddr += instr.ops[2];
+
+
+            for (size_t i = 1; i < numTargets; i++)
+            {
+                targets.push_back(baseAddr + ByteSwap16( wordOffsets[i]));
             }
             break;
         }

@@ -108,7 +108,7 @@ void exportMetadata(const char* path)
 
 void unitTest(IRGenerator* gen)
 {
-	IRFunc* func = gen->getCreateFuncInMap(loadedXex->GetEntryAddress());
+    IRFunc* func = gen->getCreateFuncInMap(loadedXex->GetEntryAddress());
     func->genBody();
     gen->m_builder->SetInsertPoint(func->codeBlocks.at(func->start_address)->bb_Block);
 
@@ -116,13 +116,21 @@ void unitTest(IRGenerator* gen)
     // code
     //
 
-    /*#_ REGISTER_IN r3 0x0000000200000000
-  #_ REGISTER_IN r4 0x0000000100000000*/
+    /*li r4, -1
+  li r5, 1
+  divdu r3, r4, r5
+  blr
+  #_ REGISTER_OUT r3 0xFFFFFFFFFFFFFFFF
+  #_ REGISTER_OUT r4 0xFFFFFFFFFFFFFFFF
+  #_ REGISTER_OUT r5 1*/
+    
 
-    unit_li(func, gen, { 3, 0, (uint32_t)0x1 });
-    unit_li(func, gen, { 4, 0, (uint32_t)0x2 });
-    unit_cmplw(func, gen, { 3, 0, 3, 4 });
-	unit_mfcr(func, gen, { 12 });
+    // 0x0000000100000000
+    BUILD->CreateStore(i64Const(0x8000000000000000), func->getRegister("RR", 4));
+    //unit_li(func, gen, { 4, 0, (uint32_t)-1, });
+    unit_li(func, gen, { 5, 0, (uint32_t) - 1,});
+    unit_divdu(func, gen, { 3, 4, 5, });
+
     unit_bclr(func, gen, {});
     
 
@@ -130,8 +138,6 @@ void unitTest(IRGenerator* gen)
     // DUMP
     //
     printf("----IR DUMP----\n\n\n");
-    llvm::raw_fd_ostream& out = llvm::outs();
-    gen->m_module->print(out, nullptr);
     gen->writeIRtoFile();
 }
 
@@ -365,6 +371,7 @@ int main()
     g_irGen = new IRGenerator(loadedXex, mod, &builder);
     g_irGen->Initialize();
     g_irGen->m_dbCallBack = dbCallBack;
+    g_irGen->m_dumpIRConsole = dumpIRConsole;
 
     printf("\n\n\n");
     auto start = std::chrono::high_resolution_clock::now();

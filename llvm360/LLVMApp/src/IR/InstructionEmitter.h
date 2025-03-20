@@ -45,8 +45,6 @@
 #define sign16(x)  llvm::ConstantInt::getSigned(i16_T, x)
 
 
-
-
 inline void StoreCA(IRFunc* func, llvm::Value* ca)
 {
     BUILD->CreateStore(BUILD->CreateOr(xerVal(), BUILD->CreateShl(zExt32(ca), 2, "shl"), "or"), func->getRegister("XER"));
@@ -57,6 +55,7 @@ inline llvm::Value* getCA(IRFunc* func)
 	return BUILD->CreateAnd(BUILD->CreateLShr(xerVal(), 2, "lshr"), 0b11, "and");
 }
 
+// https://github.com/xenia-canary/xenia-canary/blob/canary_experimental/src/xenia/cpu/ppc/ppc_decode_data.h#L29
 static inline uint64_t XEMASK(uint32_t mstart, uint32_t mstop) {
     // if mstart ≤ mstop then
     //   mask[mstart:mstop] = ones
@@ -99,21 +98,7 @@ inline llvm::Value* getBOOperation(IRFunc* func, Instruction instr, llvm::Value*
 
       // NOTE, remember to cast "bools" with int1Ty, cause if i do CreateNot with an 32 bit value it will mess up the cmp result
 
-    if (!isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) &&
-        !isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
-    {
-        BUILD->CreateSub(func->getRegister("CTR"), i32Const(1));
-        llvm::Value* isCTRnz = BUILD->CreateICmpNE(func->getRegister("CTR"), 0, "ctrnz");
-        should_branch = BUILD->CreateAnd(isCTRnz, BUILD->CreateNot(bi), "shBr");
-    }
-    // 0001y
-    if (isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) &&
-        !isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
-    {
-        BUILD->CreateSub(func->getRegister("CTR"), i32Const(1));
-        llvm::Value* isCTRz = BUILD->CreateICmpEQ(func->getRegister("CTR"), 0, "ctrnz");
-        should_branch = BUILD->CreateAnd(isCTRz, BUILD->CreateNot(bi), "shBr");
-    }
+    
     // 001zy
     if (isBoBit(instr.ops[0], 2) &&
         !isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
@@ -121,22 +106,6 @@ inline llvm::Value* getBOOperation(IRFunc* func, Instruction instr, llvm::Value*
 		// TODO: optmize this
         should_branch = BUILD->CreateAnd(BUILD->CreateNot(bi, "not"), i1Const(1), "shBr");
         return should_branch;
-    }
-    // 0100y
-    if (!isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) &&
-        isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
-    {
-        BUILD->CreateSub(func->getRegister("CTR"), i32Const(1));
-        llvm::Value* isCTRnz = BUILD->CreateICmpNE(func->getRegister("CTR"), 0, "ctrnz");
-        should_branch = BUILD->CreateAnd(isCTRnz, bi, "shBr");
-    }
-    // 0101y
-    if (isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) &&
-        isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
-    {
-        BUILD->CreateSub(func->getRegister("CTR"), i32Const(1));
-        llvm::Value* isCTRnz = BUILD->CreateICmpEQ(func->getRegister("CTR"), 0, "ctrnz");
-        should_branch = BUILD->CreateAnd(isCTRnz, bi, "shBr");
     }
     // 0b011zy (Branch if condition is TRUE)
     if (isBoBit(instr.ops[0], 2) && isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
@@ -152,12 +121,18 @@ inline llvm::Value* getBOOperation(IRFunc* func, Instruction instr, llvm::Value*
         should_branch = BUILD->CreateAnd(isCTRnz, i1Const(1), "shBr");
         return should_branch;
     }
+    // 1z01y Decrement the CTR, then branch if the decremented CTR[M–63] = 0
+    if (isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) && isBoBit(instr.ops[0], 4))
+    {
+        BUILD->CreateSub(func->getRegister("CTR"), i32Const(1));
+        should_branch = BUILD->CreateICmpEQ(func->getRegister("CTR"), 0, "ctrnz");
+        return should_branch;
+    }
 
     printf("un-implemented condition\n");
     DebugBreak();
     return nullptr;
 }
-
 
 // TODO refactor
 inline void setCRField(IRFunc* func, uint32_t index, llvm::Value* field)
@@ -177,6 +152,33 @@ inline void setCRField(IRFunc* func, uint32_t index, llvm::Value* field)
     BUILD->CreateStore(updatedCR, func->getRegister("CR"));
 }
 
+inline void UpdateCR_CmpZero(IRFunc* func, Instruction instr, const char* name, llvm::Value* val)
+{
+    // RC
+    if (strcmp(instr.opcName.c_str(), name) == 0)
+    {
+        llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(val, i64Const(0), "lt"));
+        llvm::Value* GT = zExt32(BUILD->CreateICmpSGT(val, i64Const(0), "gt"));
+        llvm::Value* EQ = zExt32(BUILD->CreateICmpEQ(val, i64Const(0), "eq"));
+        // TODO
+        llvm::Value* SO_bit = i32Const(0);
+        llvm::Value* field = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
+
+        setCRField(func, 0, field);
+    }
+}
+
+inline void UpdateCR_CmpValue(IRFunc* func, Instruction instr, llvm::Value* v1, llvm::Value* v2, uint32_t field)
+{
+    llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(v1, v2, "lt"));
+    llvm::Value* GT = zExt32(BUILD->CreateICmpSGT(v1, v2, "gt"));
+    llvm::Value* EQ = zExt32(BUILD->CreateICmpEQ(v1, v2, "eq"));
+    // TODO
+    llvm::Value* SO_bit = i32Const(0);
+    llvm::Value* res = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
+    setCRField(func, field, res);
+}
+
 inline llvm::Value* extractCRBit(IRFunc* func, uint32_t BI) {
     // create mask at bit pos
     llvm::Value* mask = i32Const(1);
@@ -188,59 +190,31 @@ inline llvm::Value* extractCRBit(IRFunc* func, uint32_t BI) {
     return BUILD->CreateIntCast(BUILD->CreateLShr(isolatedBit, shiftAmount, "bi"), BUILD->getInt1Ty(), false,"cast1");
 }
 
-inline llvm::Value* updateCRWithValue(IRFunc* func, llvm::Value* right, llvm::Value* left)
-{
-    // lt gt eq
-    llvm::Value* ltBit = zExt32(BUILD->CreateICmpSLT(left, right, "isLT"));
-    llvm::Value* gtBit = zExt32(BUILD->CreateICmpSGT(left, right, "isGT"));
-    llvm::Value* eqBit = zExt32(BUILD->CreateICmpEQ(left, right, "isEQ"));
-
-    // so // TODO
-    //llvm::Value* soBit = xerSO;
-
-    // build cr0 field 
-    llvm::Value* crField = BUILD->CreateOr(
-        BUILD->CreateOr(ltBit, BUILD->CreateShl(gtBit, 1, "shl"), "or"),
-        BUILD->CreateOr(BUILD->CreateShl(eqBit, 2, "shl"),
-            BUILD->CreateShl(i32Const(0), 3, "shl"), "or"), // so BIT TODO
-        "crField"
-    );
-
-    return crField;
-}
-
-inline llvm::Value* updateCRWithZero(IRFunc* func, llvm::Value* result)
-{
-    llvm::Value* zero = i32Const(0);
-    // lt gt eq
-    llvm::Value* ltBit = zExt32(BUILD->CreateICmpSLT(result, zero, "isLT"));
-    llvm::Value* gtBit = zExt32(BUILD->CreateICmpSGT(result, zero, "isGT"));
-    llvm::Value* eqBit = zExt32(BUILD->CreateICmpEQ(result, zero, "isEQ"));
-
-    // so // TODO
-    //llvm::Value* soBit = xerSO;
-
-    // build cr0 field 
-    llvm::Value* crField = BUILD->CreateOr(
-        BUILD->CreateOr(ltBit, BUILD->CreateShl(gtBit, 1)),
-        BUILD->CreateOr(BUILD->CreateShl(eqBit, 2), 
-        BUILD->CreateShl(i32Const(0), 3)), // so BIT TODO
-        "cr0Field"
-    );
-
-    return crField;
-}
-
 inline llvm::Value* AddCarried(IRFunc* func, llvm::Value* v1, llvm::Value* v2)
 {
     return BUILD->CreateICmpUGT(trcTo32(v2), BUILD->CreateNot(trcTo32(v1), "not"), "ugt");
 }
 
+inline llvm::Value* SubCarried(IRFunc* func, llvm::Value* v1, llvm::Value* v2)
+{
+    return BUILD->CreateICmpSLE(v1, v2, "sle");
+}
+
+
 inline llvm::Value* getEA_displ(IRFunc* func, uint32_t displ, uint32_t gpr)
 {
+    llvm::Value* b;
+    if (gpr == 0)
+    {
+        b = i64Const(0);
+    }
+    else 
+    {
+        b = gprVal(gpr);
+    }
+
     llvm::Value* extendedDisplacement = sExt64(llvm::ConstantInt::get(i32_T, llvm::APInt(16, displ, true)));
-    llvm::Value* regValue = gprVal(gpr);
-    llvm::Value* ea = BUILD->CreateAdd(regValue, extendedDisplacement, "ea");
+    llvm::Value* ea = BUILD->CreateAdd(b, extendedDisplacement, "ea");
     return BUILD->CreateIntToPtr(trcTo32(ea), i32_T->getPointerTo(), "addrPtr");
 }
 
@@ -275,28 +249,13 @@ inline void twi_e(Instruction instr, IRFunc* func)
     return;
 }
 
-inline void bcctr_e(Instruction instr, IRFunc* func)
+inline void tdi_e(Instruction instr, IRFunc* func)
 {
-    if (func->has_jumpTable) 
-    {
-		for (JumpTable* table : func->jumpTables)
-		{
-            if (instr.address >= table->start_Address && instr.address <= table->end_Address)
-            {
-                llvm::SwitchInst* Switch = BUILD->CreateSwitch(ctrVal(), func->getCreateBBinMap(table->targets[0]), table->targets.size());
-                for (uint32_t target : table->targets)
-                {
-                    Switch->addCase(i32Const(target), func->getCreateBBinMap(target));
-                }
-            	return;
-            }
-		}
-    }
-
-
+    // temp stub
     DebugBreak();
     return;
 }
+
 
 inline void mfspr_e(Instruction instr, IRFunc* func)
 {
@@ -376,6 +335,37 @@ inline void bcctrl_e(Instruction instr, IRFunc* func)
     BUILD->CreateCall(func->m_irGen->bcctrlFunc, { arg1, i32Const(instr.address + 4) });
 }
 
+inline void bcctr_e(Instruction instr, IRFunc* func)
+{
+    if (func->has_jumpTable)
+    {
+        for (JumpTable* table : func->jumpTables)
+        {
+            if (instr.address >= table->start_Address && instr.address <= table->end_Address)
+            {
+                llvm::SwitchInst* Switch = BUILD->CreateSwitch(ctrVal(), func->getCreateBBinMap(table->targets[0]), table->targets.size());
+                for (uint32_t target : table->targets)
+                {
+                    Switch->addCase(i32Const(target), func->getCreateBBinMap(target));
+                }
+                return;
+            }
+        }
+    }
+
+    DebugBreak();
+    /*auto argIter = func->m_irFunc->arg_begin();
+    llvm::Argument* arg1 = &*argIter;
+    llvm::Argument* arg2 = &*(++argIter);
+    BUILD->CreateCall(func->m_irGen->bcctrlFunc, { arg1, i32Const(instr.address + 4) });
+
+    // here i also make a return, because this is the form that do not save LR
+    // so when the runtime handler return it will return to the next address of this
+    // instruction, but we actually want to return to the last time lr was "stored"
+    BUILD->CreateRetVoid();*/
+    return;
+}
+
 inline void stfd_e(Instruction instr, IRFunc* func)
 {
     auto frValue = BUILD->CreateLoad(BUILD->getDoubleTy(), func->getRegister("FR", instr.ops[0]), "load_fr");
@@ -394,6 +384,15 @@ inline void stb_e(Instruction instr, IRFunc* func)
     // truncate the value to 8 bits
     auto rrValue32 = trcTo8(gprVal(instr.ops[0]));
     BUILD->CreateStore(rrValue32, getEA_displ(func, instr.ops[1], instr.ops[2]));
+}
+
+inline void stbu_e(Instruction instr, IRFunc* func)
+{
+    // truncate the value to 8 bits
+    auto rrValue32 = trcTo8(gprVal(instr.ops[0]));
+    llvm::Value* eaVal = getEA_displ(func, instr.ops[1], instr.ops[2]);
+    BUILD->CreateStore(rrValue32, eaVal);
+    BUILD->CreateStore(eaVal, func->getRegister("RR", instr.ops[2])); // update rA
 }
 
 // store word with update, update means that the address register is updated with the new address
@@ -418,6 +417,13 @@ inline void std_e(Instruction instr, IRFunc* func)
     BUILD->CreateStore(gprVal(instr.ops[0]), getEA_Dword_displ(func, instr.ops[1], instr.ops[2]));
 }
 
+inline void stdu_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* eaVal = getEA_Dword_displ(func, instr.ops[1], instr.ops[2] );
+    BUILD->CreateStore(gprVal(instr.ops[0]), eaVal);
+    BUILD->CreateStore(eaVal, func->getRegister("RR", instr.ops[2])); // update rA
+}
+
 inline void ld_e(Instruction instr, IRFunc* func)
 {
 	llvm::Value* val = BUILD->CreateLoad(BUILD->getInt64Ty(), getEA_displ(func, instr.ops[1], instr.ops[2]), "ld");
@@ -440,7 +446,7 @@ inline void addi_e(Instruction instr, IRFunc* func)
     BUILD->CreateStore(val, func->getRegister("RR", instr.ops[0]));
 }
 
-inline void addicRC_e(Instruction instr, IRFunc* func)
+inline void addic_e(Instruction instr, IRFunc* func)
 {
     llvm::Value* im = sExt64(BUILD->getInt16(instr.ops[2]));
     llvm::Value* rrValue = gprVal(instr.ops[1]);
@@ -450,15 +456,7 @@ inline void addicRC_e(Instruction instr, IRFunc* func)
 
 
 	StoreCA(func, AddCarried(func, rrValue, im));
-
-    llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(val, i64Const(0), "lt"));
-    llvm::Value* GT = zExt32(BUILD->CreateICmpSGT(val, i64Const(0), "gt"));
-    llvm::Value* EQ = zExt32(BUILD->CreateICmpEQ(val, i64Const(0), "eq"));
-    // TODO
-    llvm::Value* SO_bit = i32Const(0);
-    llvm::Value* field = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
-
-    setCRField(func, 0, field);
+    UpdateCR_CmpZero(func, instr, "addicRC", val);
 }
 
 
@@ -467,7 +465,10 @@ inline void addicRC_e(Instruction instr, IRFunc* func)
 // if rA = 0 then it will use value 0 and not the content of rA (because lis use 0)
 inline void addis_e(Instruction instr, IRFunc* func)
 {
-    llvm::Value* shift = sExt64(i32Const(instr.ops[2] << 16));
+    int16_t imm = static_cast<int16_t>(instr.ops[2]);
+    int64_t shiftedImm = static_cast<int64_t>(imm) << 16;
+
+    llvm::Value* shift = i64Const(shiftedImm);
     llvm::Value* rrValue;
     if (instr.ops[1] != 0)
     {
@@ -486,6 +487,16 @@ inline void adde_e(Instruction instr, IRFunc* func)
     llvm::Value* ab = BUILD->CreateAdd(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "val");
 	llvm::Value* abXer = BUILD->CreateAdd(ab, zExt64(getCA(func)), "valXer");
     BUILD->CreateStore(abXer, func->getRegister("RR", instr.ops[0]));
+}
+
+inline void addze_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* ab = BUILD->CreateAdd(gprVal(instr.ops[1]), zExt64(getCA(func)), "val");
+    BUILD->CreateStore(ab, func->getRegister("RR", instr.ops[0]));
+
+    // XER CA and RC
+    StoreCA(func, AddCarried(func, gprVal(instr.ops[1]), getCA(func)));
+    UpdateCR_CmpZero(func, instr, "addzeRC", ab);
 }
 
 inline void add_e(Instruction instr, IRFunc* func)
@@ -509,23 +520,25 @@ inline void bcx_e(Instruction instr, IRFunc* func)
     BUILD->CreateCondBr(should_branch, b_true, b_false);
 }
 
+inline void extsw_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* val = sExt64(trcTo32(gprVal(instr.ops[1])));
+    BUILD->CreateStore(val, func->getRegister("RR", instr.ops[0]));
+    UpdateCR_CmpZero(func, instr, "extswRC", val);
+}
 
+inline void extsh_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* val = sExt64(trcTo16(gprVal(instr.ops[1])));
+    BUILD->CreateStore(val, func->getRegister("RR", instr.ops[0]));
+    UpdateCR_CmpZero(func, instr, "extshRC", val);
+}
 
 inline void extsb_e(Instruction instr, IRFunc* func)
 {
     llvm::Value* val = sExt64(trcTo8(gprVal(instr.ops[1])));
 	BUILD->CreateStore(val, func->getRegister("RR", instr.ops[0]));
-    if (strcmp(instr.opcName.c_str(), "extsbRC") == 0)
-    {
-        llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(val, i64Const(0), "lt"));
-        llvm::Value* GT = zExt32(BUILD->CreateICmpSGT(val, i64Const(0), "gt"));
-        llvm::Value* EQ = zExt32(BUILD->CreateICmpEQ(val, i64Const(0), "eq"));
-        // TODO
-        llvm::Value* SO_bit = i32Const(0);
-        llvm::Value* field = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
-
-        setCRField(func, 0, field);
-    }
+    UpdateCR_CmpZero(func, instr, "extsbRC", val);
 }
 
 inline void cmpli_e(Instruction instr, IRFunc* func)
@@ -541,10 +554,9 @@ inline void cmpli_e(Instruction instr, IRFunc* func)
         a = gprVal(instr.ops[2]);
     }
 
-    setCRField(func, instr.ops[0], updateCRWithValue(func, i64Const(instr.ops[3]), a));
+    UpdateCR_CmpValue(func, instr, a, i64Const(instr.ops[3]), instr.ops[0]);
 }
-/*crfD, L, rA, UIMM
-crfD, L, rA, rB*/
+
 
 inline void cmpl_e(Instruction instr, IRFunc* func)
 {
@@ -563,7 +575,7 @@ inline void cmpl_e(Instruction instr, IRFunc* func)
         b = gprVal(instr.ops[3]);
     }
 
-    setCRField(func, instr.ops[0], updateCRWithValue(func, b, a));
+    UpdateCR_CmpValue(func, instr, a, b, instr.ops[0]);
 }
 
 
@@ -576,38 +588,27 @@ inline void cmpw_e(Instruction instr, IRFunc* func)
         rA = sExt64(trcTo32(rA));
         rB = sExt64(trcTo32(rB));
     }
-  
-    llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(rA, rB, "lt"));
-    llvm::Value* GT = zExt32(BUILD->CreateICmpSGT(rA, rB, "gt"));
-    llvm::Value* EQ = zExt32(BUILD->CreateICmpEQ(rA, rB, "eq"));
-    // TODO
-    llvm::Value* SO_bit = i32Const(0);
-	llvm::Value* field = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
-
-	setCRField(func, instr.ops[0], field);
+    // update CR
+    UpdateCR_CmpValue(func, instr, rA, rB, instr.ops[0]);
 }
 
-inline void cmpwi_e(Instruction instr, IRFunc* func)
+inline void cmpi_e(Instruction instr, IRFunc* func)
 {
     llvm::Value* rA = gprVal(instr.ops[2]);
-    llvm::Value* imm = sign16(instr.ops[3]);
-    if (instr.ops[1] != 1)
+    llvm::Value* imm = sExt64(sign16(instr.ops[3]));
+    if (instr.ops[1] == 0)
     {
         rA = sExt64(trcTo32(rA));
         imm = sExt64(imm);
     }
-
-    llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(rA, imm, "lt"));
-    llvm::Value* GT = zExt32(BUILD->CreateICmpSGT(rA, imm, "gt"));
-    llvm::Value* EQ = zExt32(BUILD->CreateICmpEQ(rA, imm, "eq"));
-
-    // TODO
-    llvm::Value* SO_bit = i32Const(0);
-    llvm::Value* field = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
-
-    setCRField(func, instr.ops[0], field);
+    UpdateCR_CmpValue(func, instr, rA, imm, instr.ops[0]);
 }
 
+inline void lwa_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* loadedValue = BUILD->CreateLoad(i32_T, getEA_displ(func, instr.ops[1], instr.ops[2]), "loaded_value");
+    BUILD->CreateStore(sExt64(loadedValue), func->getRegister("RR", instr.ops[0]));
+}
 
 inline void lwz_e(Instruction instr, IRFunc* func)
 {
@@ -642,6 +643,32 @@ inline void lhz_e(Instruction instr, IRFunc* func)
     BUILD->CreateStore(zExt64(trcTo16(ea_val)), func->getRegister("RR", instr.ops[0]));
 }
 
+inline void lhzu_e(Instruction instr, IRFunc* func)
+{
+    //EA is the sum(rA | 0) + d.The half word in memory addressed by EA is loaded into the low - order 16 bits of rD.
+    //The remaining bits in rD are cleared.
+    llvm::Value* ea = getEA_displ(func, instr.ops[1], instr.ops[2]);
+    llvm::Value* ea_val = BUILD->CreateLoad(i16_T, ea, "eaV");
+    BUILD->CreateStore(zExt64(trcTo16(ea_val)), func->getRegister("RR", instr.ops[0]));
+    BUILD->CreateStore(ea, func->getRegister("RR", instr.ops[2])); // update rA
+}
+
+inline void lha_e(Instruction instr, IRFunc* func)
+{
+    //EA is the sum(rA | 0) + d.The half word in memory addressed by EA is loaded into the low - order 16 bits of rD.
+    //The remaining bits in rD are cleared.
+    llvm::Value* ea_val = BUILD->CreateLoad(i16_T, getEA_displ(func, instr.ops[1], instr.ops[2]), "eaV");
+    BUILD->CreateStore(sExt64(trcTo16(ea_val)), func->getRegister("RR", instr.ops[0]));
+}
+
+inline void lhzx_e(Instruction instr, IRFunc* func)
+{
+    //EA is the sum(rA | 0) + d.The half word in memory addressed by EA is loaded into the low - order 16 bits of rD.
+    //The remaining bits in rD are cleared.
+    llvm::Value* ea_val = BUILD->CreateLoad(i16_T, getEA_regs(func, instr.ops[1], instr.ops[2]), "eaV");
+    BUILD->CreateStore(zExt64(trcTo16(ea_val)), func->getRegister("RR", instr.ops[0]));
+}
+
 inline void lbz_e(Instruction instr, IRFunc* func)
 {
     llvm::Value* loadedValue = BUILD->CreateLoad(i8_T, getEA_displ(func, instr.ops[1], instr.ops[2]), "ld");
@@ -670,6 +697,23 @@ inline void sth_e(Instruction instr, IRFunc* func)
     BUILD->CreateStore(low16, getEA_displ(func, instr.ops[1], instr.ops[2]));
 }
 
+inline void sthu_e(Instruction instr, IRFunc* func)
+{
+    //EA is the sum (rA|0) + d. The contents of the low-order 16 bits of rS are stored into the half word in memory
+    //addressed by EA.
+    llvm::Value* eaVal = getEA_displ(func, instr.ops[1], instr.ops[2]);
+    llvm::Value* low16 = trcTo16(gprVal(instr.ops[0]));
+    BUILD->CreateStore(low16, eaVal);
+    BUILD->CreateStore(eaVal, func->getRegister("RR", instr.ops[2])); // update rA
+}
+
+inline void sthx_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* eaVal = getEA_regs(func, instr.ops[1], instr.ops[2]);
+    llvm::Value* low16 = trcTo16(gprVal(instr.ops[0]));
+    BUILD->CreateStore(low16, eaVal);
+}
+
 inline void slw_e(Instruction instr, IRFunc* func)
 {
     llvm::Value* sh = BUILD->CreateAnd(trcTo8(gprVal(instr.ops[2])), i8Const(0x3F));
@@ -681,6 +725,7 @@ inline void slw_e(Instruction instr, IRFunc* func)
 }
 
 #define DMASK(b, e) (((0xFFFFFFFF << ((31 + (b)) - (e))) >> (b)))
+#define QMASK(b, e) ((0xFFFFFFFFFFFFFFFF << ((63 + (b)) - (e))) >> (b))
 // please optimize this
 inline void rlwinm_e(Instruction instr, IRFunc* func)
 {
@@ -693,21 +738,39 @@ inline void rlwinm_e(Instruction instr, IRFunc* func)
     
     auto masked = trcTo32(BUILD->CreateAnd(rotl, i64Const(mask), "and"));
     BUILD->CreateStore(zExt64(masked), func->getRegister("RR", instr.ops[0]));
-    
-    // RC
-    if(strcmp(instr.opcName.c_str(), "rlwinmRC") == 0)
-    {
-        
-        llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(masked, i32Const(0), "lt"));
-        llvm::Value* GT = zExt32(BUILD->CreateICmpSGT(masked, i32Const(0), "gt"));
-        llvm::Value* EQ = zExt32(BUILD->CreateICmpEQ(masked, i32Const(0), "eq"));
-        // TODO
-        llvm::Value* SO_bit = i32Const(0);
-        llvm::Value* field = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
-
-        setCRField(func, 0, field);
-    }
+    UpdateCR_CmpZero(func, instr, "rlwinmRC", zExt64(masked));
 }
+
+inline void rlwimi_e(Instruction instr, IRFunc* func)
+{
+    // n <- SH
+    // r <- ROTL32((RS)[32:63], n)
+    // m <- MASK(MB+32, ME+32)
+    // RA <- r&m | (RA)&¬m
+    uint32_t width = 32 - instr.ops[2];
+    llvm::Value* lhs = BUILD->CreateShl(gprVal(instr.ops[1]), instr.ops[2], "lhs");
+    llvm::Value* rhs = BUILD->CreateLShr(gprVal(instr.ops[1]), width, "rhs");
+    llvm::Value* rotl = BUILD->CreateOr(lhs, rhs, "rotl");
+    uint64_t mask = XEMASK(instr.ops[3] + 32, instr.ops[4] + 32);
+    if (mask == 0xFFFFFFFFFFFFFFFFull)
+    {
+        DebugBreak();
+    }
+    llvm::Value* result = BUILD->CreateOr(BUILD->CreateAnd(rotl, i32Const(mask), "and"), BUILD->CreateAnd(trcTo32(gprVal(instr.ops[0])), i32Const(~mask), "and"), "or");
+    BUILD->CreateStore(result, func->getRegister("RR", instr.ops[0]));
+}
+
+inline void rldicl_e(Instruction instr, IRFunc* func)
+{
+    uint32_t width = 64 - instr.ops[2];
+    llvm::Value* lhs = BUILD->CreateShl(gprVal(instr.ops[1]), instr.ops[2], "lhs");
+    llvm::Value* rhs = BUILD->CreateLShr(gprVal(instr.ops[1]), width, "rhs");
+    llvm::Value* rotl = BUILD->CreateOr(lhs, rhs, "rotl");
+    uint64_t mask = QMASK(instr.ops[3], 63);
+    llvm::Value* result = BUILD->CreateAnd(rotl, i64Const(mask), "and");
+    BUILD->CreateStore(result, func->getRegister("RR", instr.ops[0]));
+}
+
 
 inline void srawi_e(Instruction instr, IRFunc* func) 
 {
@@ -774,11 +837,19 @@ inline void orx_e(Instruction instr, IRFunc* func)
     // The contents of rS are ORed with the contents of rB and the result is placed into rA.
     llvm::Value* value = BUILD->CreateOr(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "or");
     BUILD->CreateStore(value, func->getRegister("RR", instr.ops[0]));
+    UpdateCR_CmpZero(func, instr, "orRC", value);
 }
 
 inline void ori_e(Instruction instr, IRFunc* func)
 {
     auto im64 = i64Const(instr.ops[2]);
+    auto orResult = BUILD->CreateOr(gprVal(instr.ops[1]), im64, "or");
+    BUILD->CreateStore(orResult, func->getRegister("RR", instr.ops[0]));
+}
+
+inline void oris_e(Instruction instr, IRFunc* func)
+{
+    auto im64 = zExt64(i32Const(instr.ops[2] << 16));
     auto orResult = BUILD->CreateOr(gprVal(instr.ops[1]), im64, "or");
     BUILD->CreateStore(orResult, func->getRegister("RR", instr.ops[0]));
 }
@@ -799,15 +870,7 @@ inline void andiRC_e(Instruction instr, IRFunc* func)
 {
     auto andResult = BUILD->CreateAnd(gprVal(instr.ops[1]), zExt64(i16Const(instr.ops[2])), "and");
     BUILD->CreateStore(andResult, func->getRegister("RR", instr.ops[0]));
-
-    llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(andResult, i64Const(0), "lt"));
-    llvm::Value* GT = zExt32(BUILD->CreateICmpSGT(andResult, i64Const(0), "gt"));
-    llvm::Value* EQ = zExt32(BUILD->CreateICmpEQ(andResult, i64Const(0), "eq"));
-    // TODO
-    llvm::Value* SO_bit = i32Const(0);
-    llvm::Value* field = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
-
-    setCRField(func, 0, field);
+    UpdateCR_CmpZero(func, instr, "andiRC", andResult);
 }
 
 inline void xor_e(Instruction instr, IRFunc* func)
@@ -846,6 +909,12 @@ inline void mullw_e(Instruction instr, IRFunc* func)
     BUILD->CreateStore(mulResult, func->getRegister("RR", instr.ops[0]));
 }
 
+inline void mulld_e(Instruction instr, IRFunc* func)
+{
+    auto mulResult = trcTo64(BUILD->CreateMul(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "Mul"));
+    BUILD->CreateStore(mulResult, func->getRegister("RR", instr.ops[0]));
+}
+
 inline void mulli_e(Instruction instr, IRFunc* func)
 {
     auto mulResult = BUILD->CreateMul(gprVal(instr.ops[1]), sign64(instr.ops[2]), "Mul");
@@ -864,6 +933,27 @@ inline void divwx_e(Instruction instr, IRFunc* func)
     }*/
 }
 
+inline void divwux_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* divisor = trcTo32(gprVal(instr.ops[2]));
+    llvm::Value* v = BUILD->CreateUDiv(trcTo32(gprVal(instr.ops[1])), divisor, "div");
+    v = zExt64(v);
+    BUILD->CreateStore(v, func->getRegister("RR", instr.ops[0]));
+    /*if (i.XO.Rc) {
+        f.UpdateCR(0, v);
+    }*/
+}
+
+inline void divdu_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* divisor = gprVal(instr.ops[2]);
+    llvm::Value* v = BUILD->CreateUDiv(gprVal(instr.ops[1]), divisor, "div");
+    BUILD->CreateStore(v, func->getRegister("RR", instr.ops[0]));
+    /*if (i.XO.Rc) {
+        f.UpdateCR(0, v);
+    }*/
+}
+
 inline void subf_e(Instruction instr, IRFunc* func)
 {
     // in docs the operation is:
@@ -871,18 +961,24 @@ inline void subf_e(Instruction instr, IRFunc* func)
     // but can be simplified to -> rB - rA, THEY ARE SWAPPED
     llvm::Value* v = BUILD->CreateSub(gprVal(instr.ops[2]), gprVal(instr.ops[1]), "sub");
     BUILD->CreateStore(v, func->getRegister("RR", instr.ops[0]));
-    
-    // RC
-    if (strcmp(instr.opcName.c_str(), "subfRC") == 0)
-    {
+    UpdateCR_CmpZero(func, instr, "subfRC", v);
+}
 
-        llvm::Value* LT = zExt32(BUILD->CreateICmpSLT(v, i64Const(0), "lt"));
-        llvm::Value* GT = zExt32(BUILD->CreateICmpSGT(v, i64Const(0), "gt"));
-        llvm::Value* EQ = zExt32(BUILD->CreateICmpEQ(v, i64Const(0), "eq"));
-        // TODO
-        llvm::Value* SO_bit = i32Const(0);
-        llvm::Value* field = zExt32(BUILD->CreateOr(BUILD->CreateOr(BUILD->CreateOr(LT, BUILD->CreateShl(GT, 1, "sh"), "or"), BUILD->CreateShl(EQ, 2, "sh"), "or"), BUILD->CreateShl(SO_bit, 3, "sh"), "or"));
+inline void subfe_e(Instruction instr, IRFunc* func)
+{
+    // in docs the operation is:
+    // rD ← ~ (rA) + (rB) + 1
+    // but can be simplified to -> rB - rA, THEY ARE SWAPPED
+    llvm::Value* v = BUILD->CreateSub(gprVal(instr.ops[2]), gprVal(instr.ops[1]), "sub");
+    llvm::Value* vXer = BUILD->CreateAdd(v, zExt64(getCA(func)), "valXer");
+    BUILD->CreateStore(vXer, func->getRegister("RR", instr.ops[0]));
+    UpdateCR_CmpZero(func, instr, "subfeRC", v);
+}
 
-        setCRField(func, 0, field);
-    }
+inline void subfic_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* imm = i64Const(static_cast<int16_t>(instr.ops[2]));
+    llvm::Value* v = BUILD->CreateSub(imm, gprVal(instr.ops[1]), "sub");
+    BUILD->CreateStore(v, func->getRegister("RR", instr.ops[0]));
+    StoreCA(func, SubCarried(func, gprVal(instr.ops[1]), imm));
 }

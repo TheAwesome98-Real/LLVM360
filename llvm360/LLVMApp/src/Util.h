@@ -18,9 +18,10 @@
 bool printINST = false;
 bool printFile = false; 
 bool genLLVMIR = true;
-bool isUnitTesting = true;
+bool isUnitTesting = false;
 bool doOverride = false; // if it should override the endAddress to debug
 bool dbCallBack = true; // enables debug callbacks, break points etc
+bool dumpIRConsole = false;
 uint32_t overAddr = 0x82060150;
 
 // Benchmark / static analysis

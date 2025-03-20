@@ -27,6 +27,7 @@ public:
   // Xenon State stuff
   XexImage *m_xexImage;
   bool m_dbCallBack;
+  bool m_dumpIRConsole;
 
   IRGenerator(XexImage *xex, llvm::Module* mod, llvm::IRBuilder<llvm::NoFolder>* builder);
   void Initialize();
