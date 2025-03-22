@@ -51,9 +51,28 @@ void exportMetadata(const char* path)
 {
 	EXPMD_Header header;
 	header.magic = 0x54535338;
-	header.version = 3; 
+	header.version = 4; 
 	header.flags = 0;
 	header.baseAddress = loadedXex->GetBaseAddress();
+
+
+    std::vector<Import*> lonelyVariables;
+    for (const auto& imp : loadedXex->m_imports) 
+    {
+        if (imp->type == VARIABLE) {
+            auto it = std::find_if(loadedXex->m_imports.begin(), loadedXex->m_imports.end(), [&](const Import* other) 
+                {
+                    return other->type == FUNCTION && other->name == imp->name;
+                });
+
+            if (it == loadedXex->m_imports.end()) {
+                lonelyVariables.push_back(imp);
+            }
+        }
+    }
+
+    header.num_impVars = lonelyVariables.size();
+    header.imp_Vars = new EXPMD_IMPVar * [header.num_impVars];
 	header.numSections = loadedXex->GetNumSections();
 	header.sections = new EXPMD_Section * [header.numSections];
     
@@ -78,6 +97,15 @@ void exportMetadata(const char* path)
 		header.sections[i] = sec;
 	}
 
+    for (uint32_t i = 0; i < header.num_impVars; i++)
+    {
+        Import* imp = lonelyVariables[i];
+        EXPMD_IMPVar* impVar = new EXPMD_IMPVar();
+        impVar->name = imp->name;
+        impVar->addr = imp->tableAddr;
+        header.imp_Vars[i] = impVar;
+    }
+
     std::ofstream binFile(path, std::ios::binary);
     if (!binFile)
     {
@@ -90,6 +118,16 @@ void exportMetadata(const char* path)
     binFile.write(reinterpret_cast<const char*>(&header.flags), sizeof(uint32_t));
     binFile.write(reinterpret_cast<const char*>(&header.baseAddress), sizeof(uint32_t));
     binFile.write(reinterpret_cast<const char*>(&header.numSections), sizeof(uint32_t));
+
+    for (uint32_t i = 0; i < header.num_impVars; i++)
+    {
+        EXPMD_IMPVar impVar = *header.imp_Vars[i];
+        uint32_t nameLength = impVar.name.size();
+        binFile.write(reinterpret_cast<const char*>(&nameLength), sizeof(uint32_t));
+        binFile.write(impVar.name.c_str(), impVar.name.size());
+
+        binFile.write(reinterpret_cast<const char*>(&impVar.addr), sizeof(uint32_t));
+    }
 
     for (uint32_t i = 0; i < header.numSections; i++)
     {
@@ -229,6 +267,8 @@ bool pass_Flow()
 
         printf("\n-- prologue/epilogue second pass --\n");
         //flow_undiscovered(address, endAddress);
+        flow_fixIfAddresses(address, endAddress);
+        flow_demoteInBounds(address, endAddress);
 		flow_jumpTables(address, endAddress);
 		flow_detectIncomplete(address, endAddress);
     }
