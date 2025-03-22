@@ -71,6 +71,7 @@ void initMainThread(XRuntime* run)
     }
 }
 
+#define MD_VER 4
 
 void XRuntime::importMetadata(const char* path)
 {
@@ -93,6 +94,23 @@ void XRuntime::importMetadata(const char* path)
 		printf("Invalid metadata file\n");
 		return;
 	}
+
+    if (header.version != MD_VER)
+    {
+        printf("Invalid metadata file\n");
+        return;
+    }
+
+    for (size_t i = 0; i < header.numSections; i++)
+    {
+        EXPMD_Section* sec = new EXPMD_Section;
+        EXPMD_IMPVar impVar = *header.imp_Vars[i];
+        uint32_t nameLength = impVar.name.size();
+        binFile.write(reinterpret_cast<const char*>(&nameLength), sizeof(uint32_t));
+        binFile.write(impVar.name.c_str(), impVar.name.size());
+
+        binFile.write(reinterpret_cast<const char*>(&impVar.addr), sizeof(uint32_t));
+    }
 
     for (size_t i = 0; i < header.numSections; i++)
     {

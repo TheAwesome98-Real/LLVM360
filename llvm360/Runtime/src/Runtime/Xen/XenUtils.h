@@ -12,6 +12,28 @@ typedef void(__cdecl* x_func)(XenonState*, uint32_t);
 #define DLL_API __declspec(dllexport)
 bool d3dinit = false;
 
+
+#define RESET   "\033[0m"
+#define RED     "\033[31m"
+#define YELLOW  "\033[33m"
+#define GREEN   "\033[32m"
+enum LogLevel { X_INFO, X_WARNING, X_ERROR };
+void X_LOG(LogLevel level, const char* format, ...) {
+    const char* color;
+    switch (level) {
+    case X_INFO:    color = GREEN; break;
+    case X_WARNING: color = YELLOW; break;
+    case X_ERROR:   color = RED; break;
+    }
+    printf("%s", color);
+    va_list args;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+    printf("%s\n", RESET);
+}
+
+
 // optimize?
 inline uint16_t ByteSwap16(uint16_t value) 
 {

@@ -41,6 +41,12 @@ struct XenonState {
 	}
 };
 
+struct EXPMD_IMPVar
+{
+    std::string name;
+    uint32_t addr;
+};
+
 struct EXPMD_Section
 {
     uint32_t dat_offset;
@@ -55,7 +61,9 @@ struct EXPMD_Header
     uint32_t magic;
     uint32_t version;
     uint32_t flags;
-	uint32_t baseAddress;
+    uint32_t baseAddress;
+    uint32_t num_impVars;
+    EXPMD_IMPVar** imp_Vars;
     uint32_t numSections;
     EXPMD_Section** sections;
 };
