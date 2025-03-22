@@ -36,6 +36,12 @@ llvm::IRBuilder<llvm::NoFolder> builder(cxt);
 
 Section* findSection(std::string name);
 
+struct EXPMD_IMPVar
+{
+    std::string name;
+    uint32_t addr;
+};
+
 struct EXPMD_Section
 {
 	uint32_t dat_offset;
@@ -52,6 +58,8 @@ struct EXPMD_Header
 	uint32_t version;
 	uint32_t flags;
 	uint32_t baseAddress;
+    uint32_t num_impVars;
+    EXPMD_IMPVar** imp_Vars;
 	uint32_t numSections;
 	EXPMD_Section** sections;
 };
@@ -72,17 +80,17 @@ struct pDataInfo
     };
 };
 
-bool isInFuncBound(uint32_t addr)
+IRFunc* isInFuncBound(uint32_t addr)
 {
     for (const auto& pair : g_irGen->m_function_map)
     {
         IRFunc* func = pair.second;
-        if (addr >= func->start_address && addr <= func->end_address)
+        if (addr > func->start_address && addr < func->end_address)
         {
-            return true;
+            return func;
         }
     }
-    return false;
+    return nullptr;
 }
 
 
@@ -374,7 +382,8 @@ void flow_promoteTailProl(uint32_t start, uint32_t end)
                 if (!g_irGen->isIRFuncinMap(target))
                 {
                     printf("{flow_bclrAndTailEpil} Promoted new function at: %08X\n", target);
-                    g_irGen->getCreateFuncInMap(target);
+                    IRFunc* func = g_irGen->getCreateFuncInMap(target);
+                    func->is_promotion = true;
                 }
                 start += 4;
                 continue;
@@ -388,12 +397,36 @@ void flow_promoteTailProl(uint32_t start, uint32_t end)
                 {
                     printf("{flow_bclrAndTailEpil} Promoted new function at: %08X\n", target);
                     g_irGen->getCreateFuncInMap(target);
+                    IRFunc* func = g_irGen->getCreateFuncInMap(target);
+                    func->is_promotion = true;
                 }
                 start += 4;
                 continue;
             }
         }
 
+        /*
+        bge LAB_82013ab0
+        b  FUN_820150d0     // Tail call
+        LAB_82013ab0
+        addi  ...*/
+        if (strcmp(instr.opcName.c_str(), "bc") == 0 &&
+            strcmp(instrAfter.opcName.c_str(), "b") == 0)
+        {
+            if (instr.address + (int16_t)(instr.ops[2] << 2) == instrAfter.address + 4)
+            {
+                uint32_t targetAft = instrAfter.address + signExtend(instrAfter.ops[0], 24);
+                if (!g_irGen->isIRFuncinMap(targetAft))
+                {
+                    printf("{flow_bclrAndTailEpil} Promoted new function at: %08X\n", targetAft);
+                    g_irGen->getCreateFuncInMap(targetAft);
+                    IRFunc* func = g_irGen->getCreateFuncInMap(targetAft);
+                    func->is_promotion = true;
+                }
+                start += 4;
+                continue;
+            }
+        }
 
 
         start += 4;
@@ -448,7 +481,7 @@ void flow_undiscovered(uint32_t start, uint32_t end)
                 addr += 4;
             }
 
-            if (!g_irGen->isIRFuncinMap(addr) && !isInFuncBound(addr))
+            if (!g_irGen->isIRFuncinMap(addr) && isInFuncBound(addr) == nullptr)
             {
                 printf("{flow_undiscovered} Found new function at: %08X\n", addr);
                 g_irGen->getCreateFuncInMap(addr);
@@ -472,6 +505,54 @@ void flow_undiscovered(uint32_t start, uint32_t end)
                 addr += 4;
             }
 			func->end_address = addr - 4;
+        }
+    }
+}
+
+void flow_fixIfAddresses(uint32_t start, uint32_t end)
+{
+    for (const auto& pair : g_irGen->m_function_map)
+    {
+
+        IRFunc* func = pair.second;
+        if (func->end_address != 0)
+        {
+
+            
+            if (func->end_address == end) continue;
+            Instruction instr = g_irGen->instrsList.at(func->end_address);
+            if (strcmp(instr.opcName.c_str(), "lwz") == 0 && g_irGen->m_xexImage->getSectionByAddressBounds(instr.instrWord) != nullptr
+                && (((instr.instrWord & 0x82000000) >> 24) & 0x82) == 0x82)
+            {
+                Instruction instrBef;
+                uint32_t off = func->end_address;
+                do
+                {
+                    off -= 4;
+                    instrBef = g_irGen->instrsList.at(off);
+                } while (strcmp(instrBef.opcName.c_str(), "b") != 0 &&
+                         strcmp(instrBef.opcName.c_str(), "bclr") != 0 &&
+                         strcmp(instrBef.opcName.c_str(), "bc") != 0);
+                printf("{flow_fixIfAddresses} Fixed func end at: %08X\n", instrBef.address);
+                func->end_address = instrBef.address;
+            }
+        }
+    }
+}
+
+void flow_demoteInBounds(uint32_t start, uint32_t end)
+{
+    for (const auto& pair : g_irGen->m_function_map)
+    {
+        IRFunc* func = pair.second;
+        if(func->is_promotion)
+        {
+            IRFunc* out = isInFuncBound(func->start_address);
+            if(out != nullptr)
+            {
+                printf("{flow_demoteInBounds} Func demoted at: %08X\n", func->start_address);
+                g_irGen->m_function_map.erase(func->start_address);
+            }
         }
     }
 }
@@ -550,12 +631,18 @@ void flow_bclrAndTailEpil(uint32_t start, uint32_t end)
                 if (strcmp(instr.opcName.c_str(), "b") == 0)
                 {
 
-					
-                    
-
-
-
                     uint32_t target = instr.address + signExtend(instr.ops[0], 24);
+
+                    // check if "instruction" is addr, and fix the end
+                    if (strcmp(instrAfter.opcName.c_str(), "lwz") == 0 && g_irGen->m_xexImage->getSectionByAddressBounds(instrAfter.instrWord) != nullptr
+                        && (((instrAfter.instrWord & 0x82000000) >> 24) & 0x82) == 0x82)
+                    {
+                        func->end_address = instr.address;
+                        printf("{flow_bclrAndTailEpil} Fixed bound becasue of Addr: %08X\n", func->end_address);
+                        break;
+                    }
+
+
                     if (strcmp(instrAfter.opcName.c_str(), "nop") == 0)
                     {
                         uint32_t offf = start + 4;
@@ -590,6 +677,15 @@ void flow_bclrAndTailEpil(uint32_t start, uint32_t end)
 
                 if (strcmp(instr.opcName.c_str(), "bclr") == 0)
                 {
+                    // check if "instruction" is addr, and fix the end
+                    if (strcmp(instrAfter.opcName.c_str(), "lwz") == 0 && g_irGen->m_xexImage->getSectionByAddressBounds(instrAfter.instrWord) != nullptr
+                        && (((instrAfter.instrWord & 0x82000000) >> 24) & 0x82) == 0x82)
+                    {
+                        func->end_address = instr.address;
+                        printf("{flow_bclrAndTailEpil} Fixed bound becasue of Addr: %08X\n", func->end_address);
+                        break;
+                    }
+
                     func->end_address = start;
                     if (strcmp(instrAfter.opcName.c_str(), "nop") == 0)
                     {

@@ -228,6 +228,7 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"rlwinmRC", rlwinm_e},
          {"rlwinm", rlwinm_e},
          {"mullw", mullw_e},
+         {"mullwRC", mullw_e},
          {"srawi", srawi_e},
          {"divw", divwx_e},
          {"andc", andc_e},
@@ -273,6 +274,9 @@ bool IRGenerator::EmitInstruction(Instruction instr, IRFunc* func) {
          {"divdu", divdu_e},
          {"divwu", divwux_e},
          {"mulld", mulld_e},
+         {"dcbt", dcbt_e},
+         {"dcbtst", dcbtst_e},
+         {"ldu", ldu_e},
 
          {"cmpldi", cmpli_e},
     };

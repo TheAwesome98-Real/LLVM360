@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "IRGenerator.h"
 #include "IRFunc.h"
+#include <unordered_set>
 
 
 //
@@ -86,19 +87,17 @@ inline bool isBoBit(uint32_t value, uint32_t idx) {
 inline llvm::Value* getBOOperation(IRFunc* func, Instruction instr, llvm::Value* bi)
 {
     llvm::Value* should_branch{};
+    // NOTE, remember to cast "bools" with int1Ty, cause if i do CreateNot with an 32 bit value it will mess up the cmp result
 
-    /*0000y Decrement the CTR, then branch if the decremented CTR[M–63] is not 0 and the condition is FALSE.
-      0001y Decrement the CTR, then branch if the decremented CTR[M–63] = 0 and the condition is FALSE.
-      001zy Branch if the condition is FALSE.
-      0100y Decrement the CTR, then branch if the decremented CTR[M–63] is not 0 and the condition is TRUE.
-      0101y Decrement the CTR, then branch if the decremented CTR[M–63] = 0 and the condition is TRUE.
-      011zy Branch if the condition is TRUE.
-      1z00y Decrement the CTR, then branch if the decremented CTR[M–63] is not 0.*/
-
-
-      // NOTE, remember to cast "bools" with int1Ty, cause if i do CreateNot with an 32 bit value it will mess up the cmp result
-
-    
+    // 0000y Decrement the CTR, then branch if the decremented CTR[M–63] is not 0 and the condition is FALSE.
+    if (instr.ops[0] == 0)
+    {
+        BUILD->CreateStore(BUILD->CreateSub(ctrVal(), i32Const(1), "sub"), func->getRegister("CTR"));
+        llvm::Value* isCTRnz = BUILD->CreateICmpNE(ctrVal(), i32Const(0), "ctrnz");
+        llvm::Value* isCDFalse = BUILD->CreateAnd(BUILD->CreateNot(bi, "not"), i1Const(1), "shBr");
+        should_branch = BUILD->CreateAnd(isCTRnz, isCDFalse, "and");
+        return should_branch;
+    }
     // 001zy
     if (isBoBit(instr.ops[0], 2) &&
         !isBoBit(instr.ops[0], 3) && !isBoBit(instr.ops[0], 4))
@@ -116,16 +115,17 @@ inline llvm::Value* getBOOperation(IRFunc* func, Instruction instr, llvm::Value*
     // 0b1z00y
     if (!isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) && isBoBit(instr.ops[0], 4))
     {
-        BUILD->CreateSub(func->getRegister("CTR"), i32Const(1));
-        llvm::Value* isCTRnz = BUILD->CreateICmpNE(func->getRegister("CTR"), 0, "ctrnz");
+        BUILD->CreateStore(BUILD->CreateSub(ctrVal(), i32Const(1), "sub"), func->getRegister("CTR"));
+        llvm::Value* isCTRnz = BUILD->CreateICmpNE(ctrVal(), i32Const(0), "ctrnz");
         should_branch = BUILD->CreateAnd(isCTRnz, i1Const(1), "shBr");
         return should_branch;
     }
     // 1z01y Decrement the CTR, then branch if the decremented CTR[M–63] = 0
     if (isBoBit(instr.ops[0], 1) && !isBoBit(instr.ops[0], 2) && isBoBit(instr.ops[0], 4))
     {
-        BUILD->CreateSub(func->getRegister("CTR"), i32Const(1));
-        should_branch = BUILD->CreateICmpEQ(func->getRegister("CTR"), 0, "ctrnz");
+        BUILD->CreateStore(BUILD->CreateSub(ctrVal(), i32Const(1), "sub"), func->getRegister("CTR"));
+        llvm::Value* isCTRz = BUILD->CreateICmpEQ(ctrVal(), i32Const(0), "ctrnz");
+        should_branch = isCTRz;
         return should_branch;
     }
 
@@ -220,9 +220,8 @@ inline llvm::Value* getEA_displ(IRFunc* func, uint32_t displ, uint32_t gpr)
 
 inline llvm::Value* getEA_Dword_displ(IRFunc* func, uint32_t displ, uint32_t gpr)
 {
-    llvm::Value* extendedDisplacement = sExt64(llvm::ConstantInt::get(i32_T, llvm::APInt(16, displ, true)));
     llvm::Value* regValue = gprVal(gpr);
-    llvm::Value* ea = BUILD->CreateAdd(regValue, BUILD->CreateShl(extendedDisplacement, 2, "shl"), "ea");
+    llvm::Value* ea = BUILD->CreateAdd(regValue, i64Const((int64_t)((int16_t)(displ << 2))), "ea");   
     return BUILD->CreateIntToPtr(ea, i64_T->getPointerTo(), "addrPtr");
 }
 
@@ -239,8 +238,27 @@ inline llvm::Value* getEA_regs(IRFunc* func, uint32_t gpr1, uint32_t gpr2)
 inline void nop_e(Instruction instr, IRFunc* func)
 {
 	// best instruction ever
+
+    // lil hack
+    if (instr.address == func->end_address && func->m_irGen->isIRFuncinMap(instr.address + 4))
+    {
+        BUILD->CreateRetVoid();
+    }
     return;
 }
+
+inline void dcbt_e(Instruction instr, IRFunc* func)
+{
+    // no-op
+    return;
+}
+
+inline void dcbtst_e(Instruction instr, IRFunc* func)
+{
+    // no-op
+    return;
+}
+
 
 inline void twi_e(Instruction instr, IRFunc* func)
 {
@@ -296,13 +314,30 @@ inline void bl_e(Instruction instr, IRFunc* func)
 
     BUILD->CreateStore(i32Const(instr.address + 4), func->getRegister("LR"));
 	BUILD->CreateCall(targetFunc->m_irFunc, {arg1, i32Const(instr.address + 4)});
+
+
+    uint32_t lrAddr = instr.address + 4;
+    Instruction lrInstr = func->m_irGen->instrsList.at(lrAddr);
+
+    while (strcmp(lrInstr.opcName.c_str(), "nop") == 0)
+    {
+        lrAddr += 4;
+        lrInstr = func->m_irGen->instrsList.at(lrAddr);
+    }
+
+    // check if the lr target is a function, if yes, restore execution flow to that
+    if (func->m_irGen->isIRFuncinMap(lrAddr))
+    {
+        IRFunc* lrFunc = func->m_irGen->getCreateFuncInMap(lrAddr);
+        func->m_irGen->initFuncBody(lrFunc);
+        BUILD->CreateCall(lrFunc->m_irFunc, { arg1, i32Const(lrAddr)});
+        BUILD->CreateRetVoid();
+    }
 }
 
 inline void b_e(Instruction instr, IRFunc* func)
 {
     uint32_t target = instr.address + signExtend(instr.ops[0], 24);
-    llvm::BasicBlock* target_BB = func->getCreateBBinMap(target);
-
     // tail call
     if(func->m_irGen->isIRFuncinMap(target))
     {
@@ -317,7 +352,7 @@ inline void b_e(Instruction instr, IRFunc* func)
         return;
     }
 
-
+    llvm::BasicBlock* target_BB = func->getCreateBBinMap(target);
     BUILD->CreateBr(target_BB);
 }
 
@@ -344,9 +379,14 @@ inline void bcctr_e(Instruction instr, IRFunc* func)
             if (instr.address >= table->start_Address && instr.address <= table->end_Address)
             {
                 llvm::SwitchInst* Switch = BUILD->CreateSwitch(ctrVal(), func->getCreateBBinMap(table->targets[0]), table->targets.size());
+                std::unordered_set<uint32_t> processedValues; // do not allow duplicates
                 for (uint32_t target : table->targets)
                 {
-                    Switch->addCase(i32Const(target), func->getCreateBBinMap(target));
+                    if (processedValues.find(target) == processedValues.end())
+                    {
+                        Switch->addCase(i32Const(target), func->getCreateBBinMap(target));
+                        processedValues.insert(target);
+                    }
                 }
                 return;
             }
@@ -354,7 +394,7 @@ inline void bcctr_e(Instruction instr, IRFunc* func)
     }
 
     DebugBreak();
-    /*auto argIter = func->m_irFunc->arg_begin();
+    auto argIter = func->m_irFunc->arg_begin();
     llvm::Argument* arg1 = &*argIter;
     llvm::Argument* arg2 = &*(++argIter);
     BUILD->CreateCall(func->m_irGen->bcctrlFunc, { arg1, i32Const(instr.address + 4) });
@@ -362,7 +402,7 @@ inline void bcctr_e(Instruction instr, IRFunc* func)
     // here i also make a return, because this is the form that do not save LR
     // so when the runtime handler return it will return to the next address of this
     // instruction, but we actually want to return to the last time lr was "stored"
-    BUILD->CreateRetVoid();*/
+    BUILD->CreateRetVoid();
     return;
 }
 
@@ -428,6 +468,14 @@ inline void ld_e(Instruction instr, IRFunc* func)
 {
 	llvm::Value* val = BUILD->CreateLoad(BUILD->getInt64Ty(), getEA_displ(func, instr.ops[1], instr.ops[2]), "ld");
     BUILD->CreateStore(val, func->getRegister("RR", instr.ops[0]));
+}
+
+inline void ldu_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* ea = getEA_displ(func, instr.ops[1], instr.ops[2]);
+    llvm::Value* val = BUILD->CreateLoad(BUILD->getInt64Ty(), ea, "ld");
+    BUILD->CreateStore(val, func->getRegister("RR", instr.ops[0]));
+    BUILD->CreateStore(ea, func->getRegister("RR", instr.ops[2])); // update rA
 }
 
 inline void addi_e(Instruction instr, IRFunc* func)
@@ -512,9 +560,9 @@ inline void bcx_e(Instruction instr, IRFunc* func)
     llvm::Value* bi = BUILD->CreateTrunc(extractCRBit(func, instr.ops[1]), BUILD->getInt1Ty(), "tr");
     llvm::Value* should_branch = getBOOperation(func, instr, bi);
 
-
+    
     // compute condition BBs
-    llvm::BasicBlock* b_true = func->getCreateBBinMap(instr.address + (instr.ops[2] << 2));
+    llvm::BasicBlock* b_true = func->getCreateBBinMap(instr.address + (int16_t)(instr.ops[2] << 2));
     llvm::BasicBlock* b_false = func->getCreateBBinMap(instr.address + 4);
 
     BUILD->CreateCondBr(should_branch, b_true, b_false);
@@ -716,7 +764,7 @@ inline void sthx_e(Instruction instr, IRFunc* func)
 
 inline void slw_e(Instruction instr, IRFunc* func)
 {
-    llvm::Value* sh = BUILD->CreateAnd(trcTo8(gprVal(instr.ops[2])), i8Const(0x3F));
+    llvm::Value* sh = BUILD->CreateAnd(trcTo8(gprVal(instr.ops[2])), i8Const(0x3F), "and");
     llvm::Value* v = BUILD->CreateSelect(BUILD->CreateICmpULT(gprVal(instr.ops[2]), i64Const(32), "ULT"), trcTo32(BUILD->CreateShl(gprVal(instr.ops[1]), zExt64(sh), "shl")), i32Const(0), "sel");
     BUILD->CreateStore(zExt64(v), func->getRegister("RR", instr.ops[0]));
     /*if (i.X.Rc) {
@@ -756,7 +804,7 @@ inline void rlwimi_e(Instruction instr, IRFunc* func)
     {
         DebugBreak();
     }
-    llvm::Value* result = BUILD->CreateOr(BUILD->CreateAnd(rotl, i32Const(mask), "and"), BUILD->CreateAnd(trcTo32(gprVal(instr.ops[0])), i32Const(~mask), "and"), "or");
+    llvm::Value* result = BUILD->CreateOr(BUILD->CreateAnd(trcTo32(rotl), i32Const(mask), "and"), BUILD->CreateAnd(trcTo32(gprVal(instr.ops[0])), i32Const(~mask), "and"), "or");
     BUILD->CreateStore(result, func->getRegister("RR", instr.ops[0]));
 }
 
@@ -907,6 +955,7 @@ inline void mullw_e(Instruction instr, IRFunc* func)
 {
     auto mulResult = trcTo32(BUILD->CreateMul(gprVal(instr.ops[1]), gprVal(instr.ops[2]), "Mul"));
     BUILD->CreateStore(mulResult, func->getRegister("RR", instr.ops[0]));
+    UpdateCR_CmpZero(func, instr, "mullwRC", zExt64(mulResult));
 }
 
 inline void mulld_e(Instruction instr, IRFunc* func)

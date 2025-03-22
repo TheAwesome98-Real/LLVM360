@@ -1,5 +1,6 @@
 #include "IRFunc.h"
 #include <sstream>
+#include <unordered_set>
 
 
 
@@ -24,7 +25,8 @@ bool IRFunc::EmitFunction()
     m_irGen->m_builder->SetInsertPoint(getCreateBBinMap(start_address));
 
     uint32_t idx = this->start_address;
-    
+    if (start_address == 0x82014DA8) DebugBreak();
+
     // discover start basic blocks
     while (idx <= this->end_address)
     {
@@ -32,14 +34,39 @@ bool IRFunc::EmitFunction()
 		if (strcmp(instr.opcName.c_str(), "b") == 0)
 		{
             uint32_t target = idx + signExtend(instr.ops[0], 24);
-            this->getCreateBBinMap(target);
-            this->getCreateBBinMap(instr.address + 4);
+            // check for tail calls
+            if (!m_irGen->isIRFuncinMap(target))
+            {
+                this->getCreateBBinMap(target);
+                //this->getCreateBBinMap(instr.address + 4);
+            }
 		}
         if (strcmp(instr.opcName.c_str(), "bc") == 0)
         {
-            this->getCreateBBinMap(instr.address + (instr.ops[2] << 2));
+            this->getCreateBBinMap(instr.address + (int16_t)(instr.ops[2] << 2));
             this->getCreateBBinMap(instr.address + 4);
         }
+
+
+        if (has_jumpTable)
+        {
+            for (JumpTable* table : jumpTables)
+            {
+                if (instr.address >= table->start_Address && instr.address <= table->end_Address)
+                {
+                    std::unordered_set<uint32_t> processedValues; // do not allow duplicates
+                    for (uint32_t target : table->targets)
+                    {
+                        if (processedValues.find(target) == processedValues.end())
+                        {
+                            getCreateBBinMap(target);
+                            processedValues.insert(target);
+                        }
+                    }
+                }
+            }
+        }
+
 
         idx += 4;
     }
@@ -169,7 +196,7 @@ llvm::Value* IRFunc::getRegister(const std::string& regName, int index1, int ind
             (regName == "MSR") ? 2 : 3;
 
 
-        return m_irGen->m_builder->CreateStructGEP(m_irGen->XenonStateType, xCtx, fieldIndex, "lr_ptr");
+        return m_irGen->m_builder->CreateStructGEP(m_irGen->XenonStateType, xCtx, fieldIndex, "spr_ptr");
     }
     else if (regName == "CR")
     {

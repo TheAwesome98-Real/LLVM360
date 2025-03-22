@@ -36,6 +36,7 @@ public:
     // Metadata for bounds analyser
     //
     bool startW_MFSPR_LR;
+    bool is_promotion;
     bool has_jumpTable;
 	std::vector<JumpTable*> jumpTables;
 };
