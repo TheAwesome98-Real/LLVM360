@@ -4,7 +4,7 @@
 
 This is just a little personal experiment i'm doing with llvm, the code is not good :} i took some stuff from the old redex's recompiler project like the XexLoader and some of the instructions decoded.
 
----------------
+--------------- 
 Join the project [Discord][dis] server! 
 
 ### Name
