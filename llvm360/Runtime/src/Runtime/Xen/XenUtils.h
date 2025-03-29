@@ -145,6 +145,42 @@ struct X_ANSI_STRING
 	BeField<uint32_t> pointer;
 };
 
+
+struct X_LDR_DATA_TABLE_ENTRY {
+    //X_LIST_ENTRY in_load_order_links;            // 0x0
+    //X_LIST_ENTRY in_memory_order_links;          // 0x8
+    //X_LIST_ENTRY in_initialization_order_links;  // 0x10
+    uint32_t in_load_order_links;            // 0x0
+    uint32_t in_memory_order_links;          // 0x8
+    uint32_t in_initialization_order_links;  // 0x10
+
+    BeField<uint32_t> dll_base;    // 0x18
+    BeField<uint32_t> image_base;  // 0x1C
+    BeField<uint32_t> image_size;  // 0x20
+
+    //X_UNICODE_STRING full_dll_name;  // 0x24
+    //X_UNICODE_STRING base_dll_name;  // 0x2C
+    uint32_t full_dll_name;
+    uint32_t base_dll_name;
+
+    BeField<uint32_t> flags;              // 0x34
+    BeField<uint32_t> full_image_size;    // 0x38
+    BeField<uint32_t> entry_point;        // 0x3C
+    BeField<uint16_t> load_count;         // 0x40
+    BeField<uint16_t> module_index;       // 0x42
+    BeField<uint32_t> dll_base_original;  // 0x44
+    BeField<uint32_t> checksum;           // 0x48 hijacked to hold kernel handle
+    BeField<uint32_t> load_flags;         // 0x4C
+    BeField<uint32_t> time_date_stamp;    // 0x50
+    BeField<uint32_t> loaded_imports;     // 0x54
+    BeField<uint32_t> xex_header_base;    // 0x58
+    // X_ANSI_STRING load_file_name;     // 0x5C
+    BeField<uint32_t> closure_root;      // 0x5C
+    BeField<uint32_t> traversal_parent;  // 0x60
+};
+
+
+
 extern "C"
 {
 	DLL_API int dllHack()

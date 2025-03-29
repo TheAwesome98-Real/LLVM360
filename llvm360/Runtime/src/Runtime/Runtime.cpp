@@ -1,23 +1,7 @@
 #include "Runtime.h"
 #include "../pch.h"
+#include "MemoryManager.h"
 
-
-void* AllocateBelow4GB(HANDLE process, SIZE_T size) {
-    const uintptr_t startAddress = 0x10000000; // Start at 256MB
-    const uintptr_t maxAddress = 0xFFFFFFFF; // 4GB limit
-    const SIZE_T stepSize = 0x10000;    // 64KB step
-
-    for (uintptr_t addr = startAddress; addr < maxAddress; addr += stepSize) {
-        void* ptr = VirtualAllocEx(process, (void*)addr, size, MEM_RESERVE | MEM_COMMIT | MEM_TOP_DOWN, PAGE_READWRITE);
-        if (ptr != nullptr) {
-            std::cout << "Allocated at: " << ptr << std::endl;
-            return ptr; // Success
-        }
-    }
-
-    std::cerr << "Failed to allocate below 4GB" << std::endl;
-    return nullptr;
-}
 
 void initMainThread(XRuntime* run)
 {
@@ -26,47 +10,19 @@ void initMainThread(XRuntime* run)
     {
         // Allocate 512 kb for the main thread stack 
         constexpr size_t stackSize = 512 * 1024;
-
-
-
-        void* ptr = AllocateBelow4GB(GetCurrentProcess(), stackSize);
+        void* ptr = run->m_memory->allocate(stackSize);
         run->mainStack = (uint8_t*)ptr;
-
-        MEMORY_BASIC_INFORMATION mbi;
-        VirtualQuery(ptr, &mbi, sizeof(mbi));
-        if ((uintptr_t)mbi.BaseAddress < 0x100000000)
-        {
-            printf("Allocation is in 32-bit addressable space\n");
-        }
-        else
-        {
-            printf("PANIC!! Stack allocated above 32bit range shutting down\n");
-            return;
-        }
-
-
-
         if (!run->mainStack)
         {
             std::cerr << "Failed to allocate stack memory\n";
             return;
         }
-
-
         run->mainThreadState = new XenonState();
         run->mainThreadState->LR = 0x3242;
-
-        // PPC R1 points to the end of the allocated stack (aligned to 16 bytes)
         uintptr_t alignedStack = reinterpret_cast<uintptr_t>(run->mainStack) + stackSize;
         alignedStack &= ~0xF;  // align
-
-        run->mainThreadState->RR[1] = alignedStack;
-
-
-        // TODO add a check for the low 32 bits
-
+        run->mainThreadState->RR[1] = run->m_memory->makeHostGuest((void*)alignedStack);
         *run->g_initTLS() = run->mainThreadState;
-        XenonState* state22 = *run->g_initTLS();
         printf("MainThread allocation done\n");
     }
 }
@@ -86,8 +42,10 @@ void XRuntime::importMetadata(const char* path)
 	ifs.read(reinterpret_cast<char*>(&header.version), sizeof(uint32_t));
 	ifs.read(reinterpret_cast<char*>(&header.flags), sizeof(uint32_t));
 	ifs.read(reinterpret_cast<char*>(&header.baseAddress), sizeof(uint32_t));
-	ifs.read(reinterpret_cast<char*>(&header.numSections), sizeof(uint32_t));
-	header.sections = new EXPMD_Section * [header.numSections];
+    ifs.read(reinterpret_cast<char*>(&header.numSections), sizeof(uint32_t));
+    header.sections = new EXPMD_Section * [header.numSections];
+    ifs.read(reinterpret_cast<char*>(&header.num_impVars), sizeof(uint32_t));
+    header.imp_Vars = new EXPMD_IMPVar * [header.num_impVars];
 
 	if (header.magic != 0x54535338)
 	{
@@ -101,16 +59,17 @@ void XRuntime::importMetadata(const char* path)
         return;
     }
 
-    for (size_t i = 0; i < header.numSections; i++)
+    for (size_t i = 0; i < header.num_impVars; i++)
     {
-        EXPMD_Section* sec = new EXPMD_Section;
-        EXPMD_IMPVar impVar = *header.imp_Vars[i];
-        uint32_t nameLength = impVar.name.size();
-        binFile.write(reinterpret_cast<const char*>(&nameLength), sizeof(uint32_t));
-        binFile.write(impVar.name.c_str(), impVar.name.size());
-
-        binFile.write(reinterpret_cast<const char*>(&impVar.addr), sizeof(uint32_t));
+        EXPMD_IMPVar* impVar = new EXPMD_IMPVar;
+        uint32_t nameLength;
+        ifs.read(reinterpret_cast<char*>(&nameLength), sizeof(uint32_t));
+        impVar->name.resize(nameLength);
+        ifs.read(&impVar->name[0], nameLength);
+        ifs.read(reinterpret_cast<char*>(&impVar->addr), sizeof(uint32_t));
+        header.imp_Vars[i] = impVar;
     }
+
 
     for (size_t i = 0; i < header.numSections; i++)
     {
@@ -133,11 +92,11 @@ void XRuntime::importMetadata(const char* path)
 }
 void XRuntime::allocateSectionsData()
 {
-	if (!m_metadata)
-	{
-		printf("No metadata found\n");
-		return;
-	}
+    if (!m_metadata)
+    {
+        printf("No metadata found\n");
+        return;
+    }
 
     size_t allocationSize = 0;
 
@@ -149,31 +108,65 @@ void XRuntime::allocateSectionsData()
             continue;
         }
 
-        if(m_metadata->sections[i]->dat_offset > m_metadata->sections[i - 1]->dat_offset)
+        if (m_metadata->sections[i]->dat_offset > m_metadata->sections[i - 1]->dat_offset)
         {
             allocationSize = m_metadata->sections[i]->dat_offset;
         }
     }
 
-    void* baseAddr = VirtualAlloc(reinterpret_cast<void*>(m_metadata->baseAddress), allocationSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-	if (!baseAddr || (uint32_t)baseAddr != m_metadata->baseAddress)
-	{
-		printf("Failed to reserve memory\n");
-		return;
-	}
+    void* baseAddr = m_memory->allocate(allocationSize, m_metadata->baseAddress);
+    if (!baseAddr)
+    {
+        printf("Failed to reserve memory\n");
+        return;
+    }
 
-	for (size_t i = 0; i < m_metadata->numSections; i++)
-	{
-		EXPMD_Section* sec = m_metadata->sections[i];
-        memcpy((void*)((uint32_t)baseAddr + sec->dat_offset), sec->data, sec->size);
-        printf("Allocated section memory at %08llX\n", (uint32_t)baseAddr + sec->dat_offset);
-	}
+    for (size_t i = 0; i < m_metadata->numSections; i++)
+    {
+        EXPMD_Section* sec = m_metadata->sections[i];
+        memcpy((void*)((uint64_t)baseAddr + sec->dat_offset), sec->data, sec->size);
+        printf("Allocated section memory at %08llX\n", (uint32_t)m_metadata->baseAddress + sec->dat_offset);
+    }
+}
+
+EXPMD_IMPVar* XRuntime::getImpByName(const char* name)
+{
+    for (size_t i = 0; i < m_metadata->num_impVars; i++)
+    {
+        EXPMD_IMPVar* var = m_metadata->imp_Vars[i];
+        if (strcmp(var->name.c_str(), name) == 0)
+        {
+            return var;
+        }
+    }
+    printf("No import with name [%s] found\n", name);
+    return nullptr;
+}
+
+
+uint32_t m_nativeXexExecutableModuleHandle;
+uint32_t m_nativeXexExecutableModuleHandlePtr;
+
+void XRuntime::initImpVars()
+{
+    EXPMD_IMPVar* var = getImpByName("XexExecutableModuleHandle");
+    if(var != nullptr)
+    {
+        m_nativeXexExecutableModuleHandle = m_memory->makeHostGuest(m_memory->allocate(2048));
+        m_nativeXexExecutableModuleHandlePtr = m_memory->makeHostGuest(m_memory->allocate(4));
+        m_memory->write32To(var->addr, m_nativeXexExecutableModuleHandlePtr);
+        m_memory->write32To(m_nativeXexExecutableModuleHandlePtr, m_nativeXexExecutableModuleHandle);
+        m_memory->write32To(m_nativeXexExecutableModuleHandle, 0x4000000);
+        m_memory->write32To(m_nativeXexExecutableModuleHandle + 0x58, 0x80101100);
+    }
 }
 
 void XRuntime::init()
 {
+    m_memory = new XAlloc();
     importMetadata("MD.tss");
     allocateSectionsData();
+    initImpVars();
 
     g_exeModule = GetModuleHandleW(NULL);
     if (g_exeModule)

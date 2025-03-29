@@ -74,10 +74,14 @@ extern "C"
 	{
 		X_LOG(X_INFO, "{RtlNtStatusToDosError} ");
 	}
+
 	DLL_API void NtAllocateVirtualMemory(XenonState* ctx, uint32_t lr)
 	{
 		X_LOG(X_INFO, "{NtAllocateVirtualMemory} ");
+		ctx->setGpr(3, NtAllocateVirtualMemory_X((uint32_t*)ctx->gpr(3), (uint32_t*)ctx->gpr(4), 0, 0));
 	}
+
+
 	DLL_API void NtFreeVirtualMemory(XenonState* ctx, uint32_t lr)
 	{
 		X_LOG(X_INFO, "{NtFreeVirtualMemory} ");
@@ -105,6 +109,7 @@ extern "C"
 	DLL_API void RtlImageXexHeaderField(XenonState* ctx, uint32_t lr)
 	{
 		X_LOG(X_INFO, "{RtlImageXexHeaderField} ");
+		ctx->setGpr(3, 0);
 	}
 	DLL_API void KeGetCurrentProcessType(XenonState* ctx, uint32_t lr)
 	{

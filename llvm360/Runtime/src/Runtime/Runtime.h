@@ -11,6 +11,9 @@
 #include <mutex>
 #include "../Graphics/ImGuiDebugger.h"
 
+
+class XAlloc;
+
 typedef struct {
     uint32_t xexAddress;
     void* funcPtr;
@@ -36,9 +39,12 @@ struct XenonState {
     uint64_t RR[32];
     double FR[32];
 
-	uint32_t gpr(uint32_t reg) {
+	uint64_t gpr(uint32_t reg) {
 		return RR[reg];
 	}
+    void setGpr(uint32_t reg, uint64_t val) {
+        RR[reg] = val;
+    }
 };
 
 struct EXPMD_IMPVar
@@ -116,6 +122,8 @@ public:
 	void init();
 	void importMetadata(const char* path);
 	void allocateSectionsData();
+    void initImpVars();
+    EXPMD_IMPVar* getImpByName(const char* name);
 
     typedef XenonState** (__cdecl* getXCtxAddressFunc)();
     getXCtxAddressFunc g_initTLS;
@@ -124,12 +132,14 @@ public:
 
     XenonState* mainThreadState;
     uint8_t* mainStack;
+    //X_LDR_DATA_TABLE_ENTRY* xex_module;
 
     X_Function* exportedArray;
     int* exportedCount;
     bool debuggerEnabled;
 
 	//Graphics* m_graphics;
+    XAlloc* m_memory;
     static XRuntime* g_runtime;
     static void initGlobal();
 };
