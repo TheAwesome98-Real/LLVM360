@@ -118,6 +118,7 @@ void exportMetadata(const char* path)
     binFile.write(reinterpret_cast<const char*>(&header.flags), sizeof(uint32_t));
     binFile.write(reinterpret_cast<const char*>(&header.baseAddress), sizeof(uint32_t));
     binFile.write(reinterpret_cast<const char*>(&header.numSections), sizeof(uint32_t));
+    binFile.write(reinterpret_cast<const char*>(&header.num_impVars), sizeof(uint32_t));
 
     for (uint32_t i = 0; i < header.num_impVars; i++)
     {

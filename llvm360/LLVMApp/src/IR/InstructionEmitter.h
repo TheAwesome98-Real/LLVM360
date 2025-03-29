@@ -203,32 +203,27 @@ inline llvm::Value* SubCarried(IRFunc* func, llvm::Value* v1, llvm::Value* v2)
 
 inline llvm::Value* getEA_displ(IRFunc* func, uint32_t displ, uint32_t gpr)
 {
-    llvm::Value* b;
-    if (gpr == 0)
-    {
-        b = i64Const(0);
-    }
-    else 
-    {
-        b = gprVal(gpr);
-    }
-
+    llvm::Value* b = gpr == 0 ? static_cast<llvm::Value*>(i64Const(0)) : static_cast<llvm::Value*>(gprVal(gpr));
     llvm::Value* extendedDisplacement = sExt64(llvm::ConstantInt::get(i32_T, llvm::APInt(16, displ, true)));
-    llvm::Value* ea = BUILD->CreateAdd(b, extendedDisplacement, "ea");
-    return BUILD->CreateIntToPtr(trcTo32(ea), i32_T->getPointerTo(), "addrPtr");
+    llvm::Value* ea = zExt64(trcTo32(BUILD->CreateAdd(b, extendedDisplacement, "ea")));
+    llvm::Value* fixedEA = BUILD->CreateAdd(ea, BUILD->CreateLoad(func->m_irGen->module_base->getValueType(), func->m_irGen->module_base, "m_bV"), "fEa");
+    return BUILD->CreateIntToPtr(fixedEA, i64_T->getPointerTo(), "addrPtr");
 }
 
 inline llvm::Value* getEA_Dword_displ(IRFunc* func, uint32_t displ, uint32_t gpr)
 {
     llvm::Value* regValue = gprVal(gpr);
     llvm::Value* ea = BUILD->CreateAdd(regValue, i64Const((int64_t)((int16_t)(displ << 2))), "ea");   
-    return BUILD->CreateIntToPtr(ea, i64_T->getPointerTo(), "addrPtr");
+    llvm::Value* fixedEA = BUILD->CreateAdd(ea, BUILD->CreateLoad(func->m_irGen->module_base->getValueType(), func->m_irGen->module_base, "m_bV"), "fEa");
+    return BUILD->CreateIntToPtr(fixedEA, i64_T->getPointerTo(), "addrPtr");
 }
 
 inline llvm::Value* getEA_regs(IRFunc* func, uint32_t gpr1, uint32_t gpr2)
 {
-    llvm::Value* ea = trcTo32(BUILD->CreateAdd(gprVal(gpr1), gprVal(gpr2), "ea"));
-    return BUILD->CreateIntToPtr(ea, i64_T->getPointerTo(), "addrPtr");
+    llvm::Value* b = gpr1 == 0 ? static_cast<llvm::Value*>(i64Const(0)) : static_cast<llvm::Value*>(gprVal(gpr1));
+    llvm::Value* ea = BUILD->CreateAdd(b, gprVal(gpr2), "ea");
+    llvm::Value* fixedEA = BUILD->CreateAdd(ea, BUILD->CreateLoad(func->m_irGen->module_base->getValueType(), func->m_irGen->module_base, "m_bV"), "fEa");
+    return BUILD->CreateIntToPtr(fixedEA, i64_T->getPointerTo(), "addrPtr");
 }
 
 //

@@ -46,6 +46,7 @@ public:
 
   llvm::Value* xCtx;  
   llvm::GlobalVariable* tlsVariable;
+  llvm::GlobalVariable* module_base;
   llvm::StructType* XenonStateType = llvm::StructType::create(
       m_builder->getContext(), {
           llvm::Type::getInt64Ty(m_builder->getContext()),  // LR

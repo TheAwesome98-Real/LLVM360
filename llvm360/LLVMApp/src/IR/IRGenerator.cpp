@@ -68,6 +68,18 @@ void IRGenerator::InitLLVM() {
     CxtSwapFunc();
     initExtFunc();
 
+    
+    module_base = new llvm::GlobalVariable(
+        *m_module,                      
+        m_builder->getInt64Ty(),             
+        false,                  
+        llvm::GlobalValue::ExternalLinkage, 
+        nullptr,
+        "moduleBase"
+    );
+    module_base->setDLLStorageClass(llvm::GlobalValue::DLLImportStorageClass);
+
+
 	// main function / entry point
     llvm::FunctionType* mainType = llvm::FunctionType::get(m_builder->getInt32Ty(), false);
     mainFn = llvm::Function::Create(mainType, llvm::Function::ExternalLinkage, "main", m_module);
