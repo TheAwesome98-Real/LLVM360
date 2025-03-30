@@ -74,10 +74,12 @@ void IRGenerator::InitLLVM() {
         m_builder->getInt64Ty(),             
         false,                  
         llvm::GlobalValue::ExternalLinkage, 
-        nullptr,
+        m_builder->getInt64(0),
         "moduleBase"
     );
-    module_base->setDLLStorageClass(llvm::GlobalValue::DLLImportStorageClass);
+    module_base->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
+
+    
 
 
 	// main function / entry point

@@ -1151,11 +1151,11 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t *stride, Instructio
         // offset is *4
     case 58:
         if (aa && !b31_1)
-            INST("lwa", S, b11_5, b16_14) // lwa rD,ds(rA)
+            INST("lwa", S, b16_14, b11_5) // lwa rD,ds(rA)
             if (!aa && !b31_1)
-                INST("ld", S, b11_5, b16_14) // ld rD,ds(rA)
+                INST("ld", S, b16_14, b11_5) // ld rD,ds(rA)
                 if (!aa && b31_1)
-                    INST("ldu", S, b11_5, b16_14) // ldu rD,ds(rA)
+                    INST("ldu", S, b16_14, b11_5) // ldu rD,ds(rA)
 
     case 62:
         if (!aa && !b31_1)

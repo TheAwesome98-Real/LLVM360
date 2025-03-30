@@ -225,7 +225,7 @@ inline llvm::Value* getEA_D(IRFunc* func, uint32_t displ, uint32_t gpr)
 inline llvm::Value* getEA_DWORD_D(IRFunc* func, uint32_t displ, uint32_t gpr)
 {
     llvm::Value* regValue = gprVal(gpr);
-    return BUILD->CreateAdd(regValue, i64Const((int64_t)((int16_t)(displ << 2))), "ea");   
+    return zExt64(trcTo32(BUILD->CreateAdd(regValue, i64Const((int64_t)((int16_t)(displ << 2))), "ea")));
 }
 
 inline llvm::Value* getEA_R(IRFunc* func, uint32_t gpr1, uint32_t gpr2)
@@ -470,13 +470,13 @@ inline void stdu_e(Instruction instr, IRFunc* func)
 
 inline void ld_e(Instruction instr, IRFunc* func)
 {
-	llvm::Value* val = BUILD->CreateLoad(BUILD->getInt64Ty(), EA_HostPtr(func, getEA_D(func, instr.ops[1], instr.ops[2])), "ld");
+	llvm::Value* val = BUILD->CreateLoad(i64_T, EA_HostPtr(func, getEA_DWORD_D(func, instr.ops[1], instr.ops[2])), "ld");
     BUILD->CreateStore(val, func->getRegister("RR", instr.ops[0]));
 }
 
 inline void ldu_e(Instruction instr, IRFunc* func)
 {
-    llvm::Value* ea = getEA_D(func, instr.ops[1], instr.ops[2]);
+    llvm::Value* ea = getEA_DWORD_D(func, instr.ops[1], instr.ops[2]);
     llvm::Value* val = BUILD->CreateLoad(BUILD->getInt64Ty(), EA_HostPtr(func, ea), "ld");
     BUILD->CreateStore(val, func->getRegister("RR", instr.ops[0]));
     updateRA_EA(func, instr, ea);

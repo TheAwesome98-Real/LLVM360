@@ -10,7 +10,7 @@ void initMainThread(XRuntime* run)
     {
         // Allocate 512 kb for the main thread stack 
         constexpr size_t stackSize = 512 * 1024;
-        void* ptr = run->m_memory->allocate(stackSize);
+        void* ptr = run->m_memory->allocate(0, stackSize, 0, PAGE_READWRITE);
         run->mainStack = (uint8_t*)ptr;
         if (!run->mainStack)
         {
@@ -114,7 +114,7 @@ void XRuntime::allocateSectionsData()
         }
     }
 
-    void* baseAddr = m_memory->allocate(allocationSize, m_metadata->baseAddress);
+    void* baseAddr = m_memory->allocate(m_metadata->baseAddress, allocationSize, 0, PAGE_READWRITE);
     if (!baseAddr)
     {
         printf("Failed to reserve memory\n");
@@ -152,8 +152,8 @@ void XRuntime::initImpVars()
     EXPMD_IMPVar* var = getImpByName("XexExecutableModuleHandle");
     if(var != nullptr)
     {
-        m_nativeXexExecutableModuleHandle = m_memory->makeHostGuest(m_memory->allocate(2048));
-        m_nativeXexExecutableModuleHandlePtr = m_memory->makeHostGuest(m_memory->allocate(4));
+        m_nativeXexExecutableModuleHandle = m_memory->makeHostGuest(m_memory->allocate(0, 2048, 0, PAGE_READWRITE));
+        m_nativeXexExecutableModuleHandlePtr = m_memory->makeHostGuest(m_memory->allocate(0, 4, 0, PAGE_READWRITE));
         m_memory->write32To(var->addr, m_nativeXexExecutableModuleHandlePtr);
         m_memory->write32To(m_nativeXexExecutableModuleHandlePtr, m_nativeXexExecutableModuleHandle);
         m_memory->write32To(m_nativeXexExecutableModuleHandle, 0x4000000);
@@ -163,19 +163,18 @@ void XRuntime::initImpVars()
 
 void XRuntime::init()
 {
-    m_memory = new XAlloc();
-    importMetadata("MD.tss");
-    allocateSectionsData();
-    initImpVars();
-
     g_exeModule = GetModuleHandleW(NULL);
     if (g_exeModule)
     {
         g_initTLS = (getXCtxAddressFunc)GetProcAddress(g_exeModule, "getXCtxAddress");
         exportedArray = (X_Function*)GetProcAddress(g_exeModule, "X_FunctionArray");
         exportedCount = (int*)GetProcAddress(g_exeModule, "X_FunctionArrayCount");
+        g_moduleBase = (uint64_t*)GetProcAddress(g_exeModule, "moduleBase");
     }
-
+    m_memory = new XAlloc();
+    importMetadata("MD.tss");
+    allocateSectionsData();
+    initImpVars();
     initMainThread(this);
     
 	//m_graphics = new Graphics();

@@ -179,7 +179,83 @@ struct X_LDR_DATA_TABLE_ENTRY {
     BeField<uint32_t> traversal_parent;  // 0x60
 };
 
+// https://github.com/rexdex/recompiler/blob/7cd1d5a33d6c02a13f972c6564550ea816fc8b5b/dev/src/xenon_launcher/xenonLibNatives.h#
+typedef uint32_t X_STATUS;
+enum XStatus
+{
+    X_STATUS_SUCCESS = ((X_STATUS)0x00000000L),
+    X_STATUS_ABANDONED_WAIT_0 = ((X_STATUS)0x00000080L),
+    X_STATUS_USER_APC = ((X_STATUS)0x000000C0L),
+    X_STATUS_ALERTED = ((X_STATUS)0x00000101L),
+    X_STATUS_TIMEOUT = ((X_STATUS)0x00000102L),
+    X_STATUS_PENDING = ((X_STATUS)0x00000103L),
+    X_STATUS_TIMER_RESUME_IGNORED = ((X_STATUS)0x40000025L),
+    X_STATUS_BUFFER_OVERFLOW = ((X_STATUS)0x80000005L),
+    X_STATUS_NO_MORE_FILES = ((X_STATUS)0x80000006L),
+    X_STATUS_UNSUCCESSFUL = ((X_STATUS)0xC0000001L),
+    X_STATUS_NOT_IMPLEMENTED = ((X_STATUS)0xC0000002L),
+    X_STATUS_INFO_LENGTH_MISMATCH = ((X_STATUS)0xC0000004L),
+    X_STATUS_ACCESS_VIOLATION = ((X_STATUS)0xC0000005L),
+    X_STATUS_INVALID_HANDLE = ((X_STATUS)0xC0000008L),
+    X_STATUS_INVALID_PARAMETER = ((X_STATUS)0xC000000DL),
+    X_STATUS_NO_SUCH_FILE = ((X_STATUS)0xC000000FL),
+    X_STATUS_END_OF_FILE = ((X_STATUS)0xC0000011L),
+    X_STATUS_NO_MEMORY = ((X_STATUS)0xC0000017L),
+    X_STATUS_ALREADY_COMMITTED = ((X_STATUS)0xC0000021L),
+    X_STATUS_ACCESS_DENIED = ((X_STATUS)0xC0000022L),
+    X_STATUS_BUFFER_TOO_SMALL = ((X_STATUS)0xC0000023L),
+    X_STATUS_OBJECT_TYPE_MISMATCH = ((X_STATUS)0xC0000024L),
+    X_STATUS_INVALID_PAGE_PROTECTION = ((X_STATUS)0xC0000045L),
+    X_STATUS_MUTANT_NOT_OWNED = ((X_STATUS)0xC0000046L),
+    X_STATUS_MEMORY_NOT_ALLOCATED = ((X_STATUS)0xC00000A0L),
+    X_STATUS_INVALID_PARAMETER_1 = ((X_STATUS)0xC00000EFL),
+    X_STATUS_INVALID_PARAMETER_2 = ((X_STATUS)0xC00000F0L),
+    X_STATUS_INVALID_PARAMETER_3 = ((X_STATUS)0xC00000F1L),
+};
 
+enum XVirtualFlags
+{
+    XMEM_COMMIT = 0x1000,
+    XMEM_RESERVE = 0x2000,
+    XMEM_DECOMMIT = 0x4000,
+    XMEM_RELEASE = 0x8000,
+    XMEM_FREE = 0x10000,
+    XMEM_PRIVATE = 0x20000,
+    XMEM_RESET = 0x80000,
+    XMEM_TOP_DOWN = 0x100000,
+    XMEM_NOZERO = 0x800000,
+    XMEM_LARGE_PAGES = 0x20000000,
+    XMEM_HEAP = 0x40000000,
+    XMEM_16MB_PAGES = 0x80000000,
+};
+
+enum XProcessType
+{
+    X_PROCTYPE_IDLE = 0,
+    X_PROCTYPE_USER = 1,
+    X_PROCTYPE_SYSTEM = 2,
+};
+
+struct XCRITICAL_SECTION
+{
+    //
+    //  The following field is used for blocking when there is contention for
+    //  the resource
+    //
+
+    union {
+        uint32_t	RawEvent[4];
+    } Synchronization;
+
+    //
+    //  The following three fields control entering and exiting the critical
+    //  section for the resource
+    //
+
+    uint32_t LockCount;
+    uint32_t RecursionCount;
+    uint32_t OwningThread;
+};
 
 extern "C"
 {
@@ -227,21 +303,96 @@ extern "C"
 		return;
 	}
 
+    enum DebugState
+    {
+        RUNNING,
+        STEP_INTO,
+        STEP_OVER
+    };
+
+    DebugState prevState;
+    DebugState currentState = RUNNING;
+    std::vector<uint32_t> stepOverPoints;
+
+    void inline HaltState(uint32_t addr, char* name)
+    {
+        while (true)
+        {
+            // continue
+            if (GetAsyncKeyState('C') & 0x8000)
+            {
+                prevState = currentState;
+                currentState = RUNNING;
+                break;
+            }
+
+            // step Into
+            if (GetAsyncKeyState('I') & 0x8000)
+            {
+                prevState = currentState;
+                currentState = STEP_INTO;
+                break;
+            }
+
+            // step Over
+            if (GetAsyncKeyState('O') & 0x8000)
+            {
+                prevState = currentState;
+                currentState = STEP_OVER;
+                if (strcmp(name, "bc") == 0 || strcmp(name, "b") == 0 || strcmp(name, "bl") == 0)
+                {
+                    stepOverPoints.push_back(addr + 4);
+                    prevState = currentState;
+                    currentState = RUNNING;
+                }
+                break;
+            }
+        }
+    }
+
     DLL_API void DebugCallBack(XenonState* ctx, uint32_t addr, char* name)
     {
-        // update atomic values to callback the debugger and update
-        /*g_mutex.lock();
-        g_continue = false;
-        g_dBUpdating = true;
-        g_dBlist.push_back(addr);
-        g_mutex.unlock();
-        while (g_continue)
-        {
-            Sleep(1);
-        }*/
+        std::vector<uint32_t> breakPoints = { 0x82012320, 0x82012368 };
         if (IsDebuggerPresent() && true)
         {
-            DebugBreak();
+
+            for(uint32_t bp : breakPoints)
+            {
+                if(bp == addr)
+                {
+                    DebugBreak();
+                    HaltState(addr, name);
+                    return;
+                }
+            }
+
+            if (currentState == STEP_INTO)
+            {
+                DebugBreak();
+                HaltState(addr, name);
+                return;
+            }
+
+            if(currentState == RUNNING && prevState == STEP_OVER)
+            {
+                for (uint32_t bp : stepOverPoints)
+                {
+                    if (bp == addr)
+                    {
+                        DebugBreak();
+                        HaltState(addr, name);
+                        currentState = prevState;
+                        return;
+                    }
+                }
+            }
+            
+            if (currentState == STEP_OVER)
+            {
+                DebugBreak();
+                HaltState(addr, name);
+                return;
+            }
         }
 
     }

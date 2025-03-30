@@ -1,3 +1,4 @@
+#pragma once
 #include <Windows.h>
 #include <cstdint>
 #include <stdexcept>
@@ -6,8 +7,6 @@
 #include <map>
 
 #define TOTALSIZE 0x100000000
-
-extern "C" { __declspec(dllexport) uint64_t moduleBase; }
 
 
 class XAlloc
@@ -18,20 +17,22 @@ public:
         if (!base) {
             throw std::runtime_error("Failed to reserve memory");
         }
-        moduleBase = reinterpret_cast<uint64_t>(base);
+
+        
+        *XRuntime::g_runtime->g_moduleBase = reinterpret_cast<uint64_t>(base);
         // Initially, the entire reserved region is free.
         freeBlocks.push_back({ 0, TOTALSIZE });
     }
 
    
-    void* allocate(size_t size, size_t preferredOffset = SIZE_MAX) 
+    void* allocate(size_t preferredOffset, size_t size, uint32_t allocFlags, uint32_t protFlags)
     {
         size = alignSize(size);
         size_t allocOffset = 0;
         bool found = false;
 
         
-        if (preferredOffset != SIZE_MAX) 
+        if (preferredOffset != NULL) 
         {
             for (auto it = freeBlocks.begin(); it != freeBlocks.end(); ++it) 
             {
@@ -63,7 +64,7 @@ public:
         }
         
         void* addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(base) + allocOffset);
-        void* result = VirtualAlloc(addr, size, MEM_COMMIT, PAGE_READWRITE);
+        void* result = VirtualAlloc(addr, size, MEM_COMMIT | allocFlags, protFlags);
         if (!result) 
         {
             throw std::runtime_error("VirtualAlloc commit failed");
@@ -86,56 +87,6 @@ public:
         mergeFreeBlocks();
     }
 
-    
-    void* resize(void* ptr, size_t oldSize, size_t newSize) 
-    {
-        newSize = alignSize(newSize);
-        oldSize = alignSize(oldSize);
-
-        if (newSize <= oldSize) 
-        {
-            
-            size_t excess = oldSize - newSize;
-            if (excess > 0) 
-            {
-                void* excessAddr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(ptr) + newSize);
-                VirtualFree(excessAddr, excess, MEM_DECOMMIT);
-                size_t offset = reinterpret_cast<uintptr_t>(excessAddr) - reinterpret_cast<uintptr_t>(base);
-                freeBlocks.push_back({ offset, excess });
-                mergeFreeBlocks();
-            }
-            return ptr;
-        }
-        else 
-        {
-            
-            size_t offset = reinterpret_cast<uintptr_t>(ptr) - reinterpret_cast<uintptr_t>(base);
-            size_t desiredOffset = offset + oldSize;
-            for (auto it = freeBlocks.begin(); it != freeBlocks.end(); ++it) 
-            {
-                if (it->offset == desiredOffset && it->size >= (newSize - oldSize)) 
-                {
-                    void* addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(base) + desiredOffset);
-                    void* res = VirtualAlloc(addr, newSize - oldSize, MEM_COMMIT, PAGE_READWRITE);
-                    if (res) 
-                    {
-                        splitFreeBlock(it, desiredOffset, newSize - oldSize);
-                        return ptr;
-                    }
-                    break;  
-                }
-            }
-            
-            void* newPtr = allocate(newSize);
-            if (newPtr) 
-            {
-                memcpy(newPtr, ptr, oldSize);
-                free(ptr, oldSize);
-            }
-            return newPtr;
-        }
-    }
-
     void write64To(uint32_t guest, uint64_t val) { *(uint64_t*)((uint64_t)base + guest) = val; }
     void write32To(uint32_t guest, uint32_t val) { *(uint64_t*)((uint64_t)base + guest) = val; }
     void write16To(uint32_t guest, uint16_t val) { *(uint64_t*)((uint64_t)base + guest) = val; }
@@ -147,6 +98,8 @@ public:
     uint8_t read8From(uint32_t guest) { return (uint8_t)(*(uint64_t*)((uint64_t)base + guest)); }
 
     uint32_t makeHostGuest(void* host) { return (uint64_t)host - (uint64_t)base;  }
+    void* makeGuestHost(uint32_t guest) { return (void*)((uint64_t)base + guest); }
+
 
     ~XAlloc() 
     {

@@ -11,7 +11,6 @@
 #include <mutex>
 #include "../Graphics/ImGuiDebugger.h"
 
-
 class XAlloc;
 
 typedef struct {
@@ -129,6 +128,7 @@ public:
     getXCtxAddressFunc g_initTLS;
     HMODULE g_exeModule;
 	EXPMD_Header* m_metadata;
+    
 
     XenonState* mainThreadState;
     uint8_t* mainStack;
@@ -137,6 +137,7 @@ public:
     X_Function* exportedArray;
     int* exportedCount;
     bool debuggerEnabled;
+    uint64_t* g_moduleBase;
 
 	//Graphics* m_graphics;
     XAlloc* m_memory;

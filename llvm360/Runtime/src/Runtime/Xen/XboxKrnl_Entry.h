@@ -1,7 +1,7 @@
 #pragma once
 #include "XenUtils.h"
 #include "XboxKrnl_Impl.h"
-#include "../Runtime.h"
+#include "../MemoryManager.h"
 
 
 extern "C"
@@ -78,7 +78,10 @@ extern "C"
 	DLL_API void NtAllocateVirtualMemory(XenonState* ctx, uint32_t lr)
 	{
 		X_LOG(X_INFO, "{NtAllocateVirtualMemory} ");
-		ctx->setGpr(3, NtAllocateVirtualMemory_X((uint32_t*)ctx->gpr(3), (uint32_t*)ctx->gpr(4), 0, 0));
+		ctx->setGpr(3, NtAllocateVirtualMemory_X((uint32_t*)XRuntime::g_runtime->m_memory->makeGuestHost(ctx->gpr(3)), 
+												 (uint32_t*)XRuntime::g_runtime->m_memory->makeGuestHost(ctx->gpr(4)), 
+												 (uint32_t)ctx->gpr(5), 
+											     (uint32_t)ctx->gpr(6)));
 	}
 
 
@@ -114,6 +117,7 @@ extern "C"
 	DLL_API void KeGetCurrentProcessType(XenonState* ctx, uint32_t lr)
 	{
 		X_LOG(X_INFO, "{KeGetCurrentProcessType} ");
+		ctx->setGpr(3, KeGetCurrentProcessType_X());
 	}
 	DLL_API void NtQueryVirtualMemory(XenonState* ctx, uint32_t lr)
 	{
@@ -122,6 +126,7 @@ extern "C"
 	DLL_API void RtlInitializeCriticalSection(XenonState* ctx, uint32_t lr)
 	{
 		X_LOG(X_INFO, "{RtlInitializeCriticalSection} ");
+		RtlInitializeCriticalSection_X((XCRITICAL_SECTION*)XRuntime::g_runtime->m_memory->makeGuestHost(ctx->gpr(3)));
 	}
 	DLL_API void KeTlsFree(XenonState* ctx, uint32_t lr)
 	{
