@@ -79,7 +79,10 @@ void IRGenerator::InitLLVM() {
     );
     module_base->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
 
-    
+    // intrinsics types
+    swap16 = llvm::Intrinsic::getDeclaration(m_module, llvm::Intrinsic::bswap, m_builder->getInt16Ty());
+    swap32 = llvm::Intrinsic::getDeclaration(m_module, llvm::Intrinsic::bswap, m_builder->getInt32Ty());
+    swap64 = llvm::Intrinsic::getDeclaration(m_module, llvm::Intrinsic::bswap, m_builder->getInt64Ty());
 
 
 	// main function / entry point

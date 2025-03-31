@@ -776,8 +776,8 @@ uint32_t InstructionDecoder::DecodeInstruction(const uint8_t *stride, Instructio
         case 32: {
                 uint32_t l = ibf->GetAt(10, 1);
                 if (!l)
-                    INST("cmplw", b6_3, b11_5, b16_5);
-                INST("cmpld", b6_3, b11_5, b16_5);
+                    INST("cmplw", b6_3, 0, b11_5, b16_5);
+                INST("cmpld", b6_3, 0, b11_5, b16_5);
             }
 
             // or rA,rS,rB (also RC)

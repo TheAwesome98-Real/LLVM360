@@ -8,6 +8,7 @@
 // Helpers
 //
 
+#define GEN  func->m_irGen
 #define BUILD  func->m_irGen->m_builder
 #define i64Const(x) BUILD->getInt64(x)
 #define i32Const(x) BUILD->getInt32(x)
@@ -32,6 +33,18 @@
 #define crVal() BUILD->CreateLoad(BUILD->getInt32Ty(), func->getRegister("CR"), "crV")
 #define xerVal() BUILD->CreateLoad(BUILD->getInt32Ty(), func->getRegister("XER"), "xerV")
 #define ctrVal() BUILD->CreateLoad(BUILD->getInt32Ty(), func->getRegister("CTR"), "ctrV")
+
+
+// load - store
+#define Load8(x)  BUILD->CreateLoad(i8_T, EA_HostPtr(func, x), "ld8")
+#define Load16(x) BUILD->CreateCall(GEN->swap16, BUILD->CreateLoad(i16_T, EA_HostPtr(func, x), "ld16"), "sp16")
+#define Load32(x) BUILD->CreateCall(GEN->swap32, BUILD->CreateLoad(i32_T, EA_HostPtr(func, x), "ld32"), "sp32")
+#define Load64(x) BUILD->CreateCall(GEN->swap64, BUILD->CreateLoad(i64_T, EA_HostPtr(func, x), "ld64"), "sp64")
+
+#define Store8(x, y)  BUILD->CreateStore(trcTo8(x), EA_HostPtr(func, y));
+#define Store16(x, y) BUILD->CreateStore(BUILD->CreateCall(GEN->swap16, trcTo16(x), "sp16"), EA_HostPtr(func, y));
+#define Store32(x, y) BUILD->CreateStore(BUILD->CreateCall(GEN->swap32, trcTo32(x), "sp32"), EA_HostPtr(func, y));
+#define Store64(x, y) BUILD->CreateStore(BUILD->CreateCall(GEN->swap64, trcTo64(x), "sp64"), EA_HostPtr(func, y));
 
 
 // ext
@@ -416,72 +429,6 @@ inline void stfd_e(Instruction instr, IRFunc* func)
     BUILD->CreateStore(frValue, EA_HostPtr(func, getEA_D(func, instr.ops[1], instr.ops[2]))); // address needs to be a pointer (pointer to an address in memory)
 }
 
-inline void stw_e(Instruction instr, IRFunc* func)
-{
-	// truncate the value to 32 bits
-    auto rrValue32 = trcTo32(gprVal(instr.ops[0]));
-    BUILD->CreateStore(rrValue32, EA_HostPtr(func, getEA_D(func, instr.ops[1], instr.ops[2])));
-}
-
-inline void stb_e(Instruction instr, IRFunc* func)
-{
-    // truncate the value to 8 bits
-    auto rrValue32 = trcTo8(gprVal(instr.ops[0]));
-    BUILD->CreateStore(rrValue32, EA_HostPtr(func, getEA_D(func, instr.ops[1], instr.ops[2])));
-}
-
-inline void stbu_e(Instruction instr, IRFunc* func)
-{
-    // truncate the value to 8 bits
-    auto rrValue32 = trcTo8(gprVal(instr.ops[0]));
-    llvm::Value* eaVal = getEA_D(func, instr.ops[1], instr.ops[2]);
-    BUILD->CreateStore(rrValue32, EA_HostPtr(func, eaVal));
-    updateRA_EA(func, instr, eaVal);
-}
-
-// store word with update, update means that the address register is updated with the new address
-// so rA = rA + displacement after the store
-inline void stwu_e(Instruction instr, IRFunc* func)
-{
-	llvm::Value* eaVal = getEA_D(func, instr.ops[1], instr.ops[2]);
-    auto rrValue32 = trcTo32(gprVal(instr.ops[0]));
-    BUILD->CreateStore(rrValue32, EA_HostPtr(func, eaVal));
-    updateRA_EA(func, instr, eaVal);
-}
-
-
-inline void stwx_e(Instruction instr, IRFunc* func)
-{
-    llvm::Value* ea = getEA_R(func, instr.ops[1], instr.ops[2]);
-    BUILD->CreateStore(trcTo32(gprVal(instr.ops[0])), EA_HostPtr(func, ea));
-}
-
-inline void std_e(Instruction instr, IRFunc* func)
-{
-    BUILD->CreateStore(gprVal(instr.ops[0]), EA_HostPtr(func, getEA_DWORD_D(func, instr.ops[1], instr.ops[2])));
-}
-
-inline void stdu_e(Instruction instr, IRFunc* func)
-{
-    llvm::Value* eaVal = getEA_DWORD_D(func, instr.ops[1], instr.ops[2] );
-    BUILD->CreateStore(gprVal(instr.ops[0]), EA_HostPtr(func, eaVal));
-    updateRA_EA(func, instr, eaVal);
-}
-
-inline void ld_e(Instruction instr, IRFunc* func)
-{
-	llvm::Value* val = BUILD->CreateLoad(i64_T, EA_HostPtr(func, getEA_DWORD_D(func, instr.ops[1], instr.ops[2])), "ld");
-    BUILD->CreateStore(val, func->getRegister("RR", instr.ops[0]));
-}
-
-inline void ldu_e(Instruction instr, IRFunc* func)
-{
-    llvm::Value* ea = getEA_DWORD_D(func, instr.ops[1], instr.ops[2]);
-    llvm::Value* val = BUILD->CreateLoad(BUILD->getInt64Ty(), EA_HostPtr(func, ea), "ld");
-    BUILD->CreateStore(val, func->getRegister("RR", instr.ops[0]));
-    updateRA_EA(func, instr, ea);
-}
-
 inline void addi_e(Instruction instr, IRFunc* func)
 {
     llvm::Value* im = sExt64(BUILD->getInt16(instr.ops[2]));
@@ -656,115 +603,152 @@ inline void cmpi_e(Instruction instr, IRFunc* func)
     UpdateCR_CmpValue(func, instr, rA, imm, instr.ops[0]);
 }
 
+
+//
+// LOAD
+//
+
+// Load Word
+
 inline void lwa_e(Instruction instr, IRFunc* func)
 {
-    llvm::Value* loadedValue = BUILD->CreateLoad(i32_T, EA_HostPtr(func, getEA_D(func, instr.ops[1], instr.ops[2])), "loaded_value");
-    BUILD->CreateStore(sExt64(loadedValue), func->getRegister("RR", instr.ops[0]));
+    BUILD->CreateStore(sExt64(Load32(getEA_D(func, instr.ops[1], instr.ops[2]))), func->getRegister("RR", instr.ops[0]));
 }
-
 inline void lwz_e(Instruction instr, IRFunc* func)
 {
-    // EA is the sum(rA | 0) + d.The word in memory addressed by EA is loaded into the low - order 32 bits of rD.The
-    // high - order 32 bits of rD are cleared.
-    llvm::Value* loadedValue = BUILD->CreateLoad(i32_T, EA_HostPtr(func, getEA_D(func, instr.ops[1], instr.ops[2])), "loaded_value");
-    BUILD->CreateStore(zExt64(loadedValue), func->getRegister("RR", instr.ops[0]));
+    BUILD->CreateStore(zExt64(Load32(getEA_D(func, instr.ops[1], instr.ops[2]))), func->getRegister("RR", instr.ops[0]));
 }
-
 inline void lwzu_e(Instruction instr, IRFunc* func)
 {
-    // EA is the sum(rA | 0) + d.The word in memory addressed by EA is loaded into the low - order 32 bits of rD.The
-    // high - order 32 bits of rD are cleared.
-	llvm::Value* eaVal = getEA_D(func, instr.ops[1], instr.ops[2]);
-    llvm::Value* loadedValue = BUILD->CreateLoad(i32_T, EA_HostPtr(func, eaVal), "loaded_value");
-    BUILD->CreateStore(zExt64(loadedValue), func->getRegister("RR", instr.ops[0]));
-    updateRA_EA(func, instr, eaVal);
-}
-
-inline void lwzx_e(Instruction instr, IRFunc* func)
-{
-    llvm::Value* loadedValue = BUILD->CreateLoad(i32_T, EA_HostPtr(func, getEA_R(func, instr.ops[1], instr.ops[2])), "ld");
-    BUILD->CreateStore(zExt64(loadedValue), func->getRegister("RR", instr.ops[0]));
-}
-
-// could be better
-inline void lhz_e(Instruction instr, IRFunc* func)
-{
-    //EA is the sum(rA | 0) + d.The half word in memory addressed by EA is loaded into the low - order 16 bits of rD.
-    //The remaining bits in rD are cleared.
-	llvm::Value* ea_val = BUILD->CreateLoad(i16_T, EA_HostPtr(func, getEA_D(func, instr.ops[1], instr.ops[2])), "eaV");
-    BUILD->CreateStore(zExt64(trcTo16(ea_val)), func->getRegister("RR", instr.ops[0]));
-}
-
-inline void lhzu_e(Instruction instr, IRFunc* func)
-{
-    //EA is the sum(rA | 0) + d.The half word in memory addressed by EA is loaded into the low - order 16 bits of rD.
-    //The remaining bits in rD are cleared.
     llvm::Value* ea = getEA_D(func, instr.ops[1], instr.ops[2]);
-    llvm::Value* ea_val = BUILD->CreateLoad(i16_T, EA_HostPtr(func, ea), "eaV");
-    BUILD->CreateStore(zExt64(trcTo16(ea_val)), func->getRegister("RR", instr.ops[0]));
+    BUILD->CreateStore(zExt64(Load32(ea)), func->getRegister("RR", instr.ops[0]));
     updateRA_EA(func, instr, ea);
 }
+inline void lwzx_e(Instruction instr, IRFunc* func)
+{
+    BUILD->CreateStore(zExt64(Load32(getEA_R(func, instr.ops[1], instr.ops[2]))), func->getRegister("RR", instr.ops[0]));
+}
 
+// Load Half-Word
+
+inline void lhz_e(Instruction instr, IRFunc* func)
+{
+    BUILD->CreateStore(zExt64(Load16(getEA_D(func, instr.ops[1], instr.ops[2]))), func->getRegister("RR", instr.ops[0]));
+}
+inline void lhzu_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* ea = getEA_D(func, instr.ops[1], instr.ops[2]);
+    BUILD->CreateStore(zExt64(Load16(ea)), func->getRegister("RR", instr.ops[0]));
+    updateRA_EA(func, instr, ea);
+}
 inline void lha_e(Instruction instr, IRFunc* func)
 {
-    //EA is the sum(rA | 0) + d.The half word in memory addressed by EA is loaded into the low - order 16 bits of rD.
-    //The remaining bits in rD are cleared.
-    llvm::Value* ea_val = BUILD->CreateLoad(i16_T, EA_HostPtr(func, getEA_D(func, instr.ops[1], instr.ops[2])), "eaV");
-    BUILD->CreateStore(sExt64(trcTo16(ea_val)), func->getRegister("RR", instr.ops[0]));
+    BUILD->CreateStore(sExt64(Load16(getEA_D(func, instr.ops[1], instr.ops[2]))), func->getRegister("RR", instr.ops[0]));
 }
-
 inline void lhzx_e(Instruction instr, IRFunc* func)
 {
-    //EA is the sum(rA | 0) + d.The half word in memory addressed by EA is loaded into the low - order 16 bits of rD.
-    //The remaining bits in rD are cleared.
-    llvm::Value* ea_val = BUILD->CreateLoad(i16_T, EA_HostPtr(func, getEA_R(func, instr.ops[1], instr.ops[2])), "eaV");
-    BUILD->CreateStore(zExt64(trcTo16(ea_val)), func->getRegister("RR", instr.ops[0]));
+    BUILD->CreateStore(zExt64(Load16(getEA_R(func, instr.ops[1], instr.ops[2]))), func->getRegister("RR", instr.ops[0]));
 }
+
+// Load Byte
 
 inline void lbz_e(Instruction instr, IRFunc* func)
 {
-    llvm::Value* loadedValue = BUILD->CreateLoad(i8_T, EA_HostPtr(func, getEA_D(func, instr.ops[1], instr.ops[2])), "ld");
-    BUILD->CreateStore(zExt64(loadedValue), func->getRegister("RR", instr.ops[0]));
+    BUILD->CreateStore(zExt64(Load8(getEA_D(func, instr.ops[1], instr.ops[2]))), func->getRegister("RR", instr.ops[0]));
 }
-
 inline void lbzu_e(Instruction instr, IRFunc* func)
 {
-    llvm::Value* eaVal = getEA_D(func, instr.ops[1], instr.ops[2]);
-    llvm::Value* val = BUILD->CreateLoad(i8_T, EA_HostPtr(func, eaVal), "ld");
-    BUILD->CreateStore(zExt64(val), func->getRegister("RR", instr.ops[0]));
-    updateRA_EA(func, instr, eaVal);
+    llvm::Value* ea = getEA_D(func, instr.ops[1], instr.ops[2]);
+    BUILD->CreateStore(zExt64(Load8(ea)), func->getRegister("RR", instr.ops[0]));
+    updateRA_EA(func, instr, ea);
 }
-
 inline void lbzx_e(Instruction instr, IRFunc* func)
 {
-    llvm::Value* loadedValue = BUILD->CreateLoad(i8_T, EA_HostPtr(func, getEA_R(func, instr.ops[1], instr.ops[2])), "ld");
-    BUILD->CreateStore(zExt64(loadedValue), func->getRegister("RR", instr.ops[0]));
+    BUILD->CreateStore(zExt64(Load8(getEA_R(func, instr.ops[1], instr.ops[2]))), func->getRegister("RR", instr.ops[0]));
 }
+
+// Load Double-Word
+
+inline void ld_e(Instruction instr, IRFunc* func)
+{
+    BUILD->CreateStore(Load64(getEA_DWORD_D(func, instr.ops[1], instr.ops[2])), func->getRegister("RR", instr.ops[0]));
+}
+
+inline void ldu_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* ea = getEA_DWORD_D(func, instr.ops[1], instr.ops[2]);
+    BUILD->CreateStore(Load64(ea), func->getRegister("RR", instr.ops[0]));
+    updateRA_EA(func, instr, ea);
+}
+
+
+//
+// STORE
+//
+
+// Store Word
+
+inline void stw_e(Instruction instr, IRFunc* func)
+{
+    Store32(gprVal(instr.ops[0]), getEA_D(func, instr.ops[1], instr.ops[2]));
+}
+inline void stwu_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* ea = getEA_D(func, instr.ops[1], instr.ops[2]);
+    Store32(gprVal(instr.ops[0]), ea)
+    updateRA_EA(func, instr, ea);
+}
+inline void stwx_e(Instruction instr, IRFunc* func)
+{
+    Store32(gprVal(instr.ops[0]), getEA_R(func, instr.ops[1], instr.ops[2]));
+}
+
+
+// Store Half-Word
 
 inline void sth_e(Instruction instr, IRFunc* func)
 {
-    //EA is the sum (rA|0) + d. The contents of the low-order 16 bits of rS are stored into the half word in memory
-    //addressed by EA.
-    llvm::Value* low16 = trcTo16(gprVal(instr.ops[0]));
-    BUILD->CreateStore(low16, EA_HostPtr(func, getEA_D(func, instr.ops[1], instr.ops[2])));
+    Store16(gprVal(instr.ops[0]), getEA_D(func, instr.ops[1], instr.ops[2]));
 }
-
 inline void sthu_e(Instruction instr, IRFunc* func)
 {
-    //EA is the sum (rA|0) + d. The contents of the low-order 16 bits of rS are stored into the half word in memory
-    //addressed by EA.
-    llvm::Value* eaVal = getEA_D(func, instr.ops[1], instr.ops[2]);
-    llvm::Value* low16 = trcTo16(gprVal(instr.ops[0]));
-    BUILD->CreateStore(low16, EA_HostPtr(func, eaVal));
-    updateRA_EA(func, instr, eaVal);
+    llvm::Value* ea = getEA_D(func, instr.ops[1], instr.ops[2]);
+    Store16(gprVal(instr.ops[0]), ea);
+    updateRA_EA(func, instr, ea);
 }
-
 inline void sthx_e(Instruction instr, IRFunc* func)
 {
-    llvm::Value* eaVal = getEA_R(func, instr.ops[1], instr.ops[2]);
-    llvm::Value* low16 = trcTo16(gprVal(instr.ops[0]));
-    BUILD->CreateStore(low16, EA_HostPtr(func, eaVal));
+    Store16(gprVal(instr.ops[0]), getEA_R(func, instr.ops[1], instr.ops[2]));
 }
+
+// Store Byte
+
+inline void stb_e(Instruction instr, IRFunc* func)
+{
+    Store8(gprVal(instr.ops[0]), getEA_D(func, instr.ops[1], instr.ops[2]));
+}
+inline void stbu_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* ea = getEA_D(func, instr.ops[1], instr.ops[2]);
+    Store8(gprVal(instr.ops[0]), ea);
+    updateRA_EA(func, instr, ea);
+}
+
+
+// Store Double-Word
+
+inline void std_e(Instruction instr, IRFunc* func)
+{
+    Store64(gprVal(instr.ops[0]), getEA_DWORD_D(func, instr.ops[1], instr.ops[2]));
+}
+inline void stdu_e(Instruction instr, IRFunc* func)
+{
+    llvm::Value* ea = getEA_DWORD_D(func, instr.ops[1], instr.ops[2]);
+    Store64(gprVal(instr.ops[0]), ea);
+    updateRA_EA(func, instr, ea);
+}
+
+
 
 inline void slw_e(Instruction instr, IRFunc* func)
 {

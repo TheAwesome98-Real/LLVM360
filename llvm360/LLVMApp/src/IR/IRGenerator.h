@@ -43,7 +43,9 @@ public:
   llvm::Function* bcctrlFunc;
   llvm::Function* dllTestFunc;
   
-
+  llvm::Function* swap16;
+  llvm::Function* swap32;
+  llvm::Function* swap64;
   llvm::Value* xCtx;  
   llvm::GlobalVariable* tlsVariable;
   llvm::GlobalVariable* module_base;
