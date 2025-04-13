@@ -27,11 +27,11 @@ void HalReturnToFirmware_X(uint32_t routine)
 
 X_STATUS NtAllocateVirtualMemory_X(uint32_t* basePtr, uint32_t* sizePtr, uint32_t allocType, uint32_t protect)
 {
-	const auto base = (void*)(uint32_t)*basePtr;
-	const auto size = (uint32_t)*sizePtr;
+	const auto base = (uint32_t)*basePtr;
+	const auto size = BeField<uint32_t>((uint32_t)*sizePtr).value;
 	if (allocType & XMEM_RESERVE && (base != NULL))
 	{
-		X_LOG(X_ERROR, "MEM - TRIED TO ALLOCATE AT SPECIFIC ADDRESS\n");
+		X_LOG(X_ERROR, "MEM - TRIED TO ALLOCATE AT SPECIFIC ADDRESS");
 		*basePtr = 0;
 		return  X_STATUS_NOT_IMPLEMENTED;
 	}
@@ -51,30 +51,32 @@ X_STATUS NtAllocateVirtualMemory_X(uint32_t* basePtr, uint32_t* sizePtr, uint32_
 	uint32_t alignedSize = (size + (pageAlignment - 1)) & ~(pageAlignment - 1);
 	if (alignedSize != size)
 	{
-		X_LOG(X_WARNING, "MEM - aligned to %08X->%08X.1\n", size, alignedSize);
+		X_LOG(X_WARNING, "MEM - aligned to %08X->%08X.1", size, alignedSize);
 	}
 
 	void* allocated = 0;
 	uint32_t allocTypeFixed = allocType;
-	if (!(allocTypeFixed & XMEM_RELEASE))
+	if (!(allocTypeFixed & XMEM_COMMIT))
 	{
 		allocated = XRuntime::g_runtime->m_memory->allocate((size_t)base, alignedSize, 0, protect);
+		*basePtr = BeField<uint32_t>(XRuntime::g_runtime->m_memory->makeHostGuest(allocated)).value;
 		if (!allocated)
 		{
-			X_LOG(X_ERROR, "MEM -  Allocation failed\n");
+			X_LOG(X_ERROR, "MEM -  Allocation failed");
 			*basePtr = 0;
 			return  X_STATUS_NO_MEMORY;
 		}
-		X_LOG(X_WARNING, "MEM - Allocated %04X bytes", alignedSize);
+		X_LOG(X_INFO, "MEM - Allocated %04X bytes", alignedSize);
 	}
 	else
 	{
-		X_LOG(X_ERROR, "MEM -  Unknown allocType flag\n");
+		*basePtr = base;
+		X_LOG(X_ERROR, "MEM -  Unknown allocType flag");
 	}
 
 	// save allocated memory & size
-	*basePtr = XRuntime::g_runtime->m_memory->makeHostGuest(allocated);
-	*sizePtr = (uint32_t)alignedSize;
+	
+	*sizePtr = BeField<uint32_t>((uint32_t)alignedSize).value;
 
 	// allocation was OK
 	return X_STATUS_SUCCESS;
@@ -94,6 +96,14 @@ void RtlInitializeCriticalSection_X(XCRITICAL_SECTION* xctrs)
 {
 	//auto* cs = GPlatform.GetKernel().CreateCriticalSection();
 	//auto* thread = xenon::KernelThread::GetCurrentThread();
+	xctrs->LockCount = 1;
+	xctrs->OwningThread = 2;
+	xctrs->RecursionCount = 3;
+	xctrs->Synchronization.RawEvent[0] = 4;
+	xctrs->Synchronization.RawEvent[1] = 5;
+	xctrs->Synchronization.RawEvent[2] = 6;
+	xctrs->Synchronization.RawEvent[3] = 7;
+
 
 	/*xctrs->Synchronization.RawEvent[0] = 0xDAAD0FF0;
 	xctrs->Synchronization.RawEvent[1] = cs->GetHandle();
@@ -101,9 +111,20 @@ void RtlInitializeCriticalSection_X(XCRITICAL_SECTION* xctrs)
 	xctrs->RecursionCount = 0;
 	xctrs->LockCount = 0;*/
 
-	xctrs->Synchronization.RawEvent[0] = 0;
+	/*xctrs->Synchronization.RawEvent[0] = 0;
 	xctrs->LockCount = -1;
 	xctrs->RecursionCount = 0;
-	xctrs->OwningThread = 0;
-	const uint32_t kernelMarker = xctrs->Synchronization.RawEvent[0];
+	xctrs->OwningThread = GetCurrentThreadId();
+	const uint32_t kernelMarker = xctrs->Synchronization.RawEvent[0];*/
+}
+
+X_STATUS RtlEnterCriticalSection_X(XCRITICAL_SECTION* xctrs)
+{
+
+	//uint32_t spin_count = xctrs->header.absolute * 256;
+	//xctrs->recursion_count = xctrs->recursion_count + 1;
+	//InterlockedIncrement(reinterpret_cast<volatile long*>(&xctrs->lock_count));
+
+	X_LOG(X_ERROR, "RtlEnterCriticalSection_X, NOT IMPLEMENTED");
+	return 0;
 }

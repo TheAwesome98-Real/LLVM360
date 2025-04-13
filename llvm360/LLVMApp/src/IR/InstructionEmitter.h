@@ -244,7 +244,7 @@ inline llvm::Value* getEA_DWORD_D(IRFunc* func, uint32_t displ, uint32_t gpr)
 inline llvm::Value* getEA_R(IRFunc* func, uint32_t gpr1, uint32_t gpr2)
 {
     llvm::Value* b = gpr1 == 0 ? static_cast<llvm::Value*>(i64Const(0)) : static_cast<llvm::Value*>(gprVal(gpr1));
-    return BUILD->CreateAdd(b, gprVal(gpr2), "ea");
+    return zExt64(trcTo32(BUILD->CreateAdd(b, gprVal(gpr2), "ea")));
 }
 
 
@@ -561,7 +561,7 @@ inline void cmpl_e(Instruction instr, IRFunc* func)
 {
     llvm::Value* a;
     llvm::Value* b;
-    if (instr.ops[1] = 0)
+    if (instr.ops[1] == 0)
     {
         llvm::Value* low32Bits = trcTo32(gprVal(instr.ops[2]));
         a = zExt64(low32Bits);

@@ -93,6 +93,7 @@ struct BeField
         set(value + v);
         return *this;
     }
+    
 
     BeField& operator=(T v)
     {
@@ -236,13 +237,42 @@ enum XProcessType
     X_PROCTYPE_SYSTEM = 2,
 };
 
-struct XCRITICAL_SECTION
-{
-    //
-    //  The following field is used for blocking when there is contention for
-    //  the resource
-    //
 
+// https://www.nirsoft.net/kernel_struct/vista/DISPATCHER_HEADER.html
+typedef struct {
+    struct {
+        uint8_t type;
+
+        union {
+            uint8_t abandoned;
+            uint8_t absolute;
+            uint8_t npx_irql;
+            uint8_t signalling;
+        };
+        union {
+            uint8_t size;
+            uint8_t hand;
+        };
+        union {
+            uint8_t inserted;
+            uint8_t debug_active;
+            uint8_t dpc_active;
+        };
+    };
+
+    BeField<uint32_t> signal_state;
+    BeField<uint32_t> wait_list_flink;
+    BeField<uint32_t> wait_list_blink;
+} X_DISPATCH_HEADER;
+
+ 
+#pragma pack(push, 1)
+struct XCRITICAL_SECTION {
+    /*X_DISPATCH_HEADER header;
+    int32_t lock_count;               // 0x10 -1 -> 0 on first lock
+    BeField<uint32_t> recursion_count;  // 0x14  0 -> 1 on first lock
+    BeField<uint32_t> owning_thread;   // 0x18 PKTHREAD 0 unless locked
+    */
     union {
         uint32_t	RawEvent[4];
     } Synchronization;
@@ -256,6 +286,8 @@ struct XCRITICAL_SECTION
     uint32_t RecursionCount;
     uint32_t OwningThread;
 };
+#pragma pack(pop)
+
 
 extern "C"
 {
@@ -352,7 +384,7 @@ extern "C"
 
     DLL_API void DebugCallBack(XenonState* ctx, uint32_t addr, char* name)
     {
-        std::vector<uint32_t> breakPoints = { 0x82012320, 0x82012368 };
+        std::vector<uint32_t> breakPoints = { 0x82010634 };
         if (IsDebuggerPresent() && true)
         {
 

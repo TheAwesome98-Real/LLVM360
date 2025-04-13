@@ -13,10 +13,17 @@ class XAlloc
 {
 public:
     XAlloc() {
-        base = VirtualAlloc(nullptr, TOTALSIZE, MEM_RESERVE, PAGE_NOACCESS);
-        if (!base) {
-            throw std::runtime_error("Failed to reserve memory");
+
+
+        base = VirtualAlloc((void*)0x100000000, TOTALSIZE, MEM_RESERVE, PAGE_NOACCESS);
+        if (!base) 
+        {
+            base = VirtualAlloc(nullptr, TOTALSIZE, MEM_RESERVE, PAGE_NOACCESS);
         }
+		if (!base)
+		{
+			throw std::runtime_error("Failed to reserve memory");
+		}
 
         
         *XRuntime::g_runtime->g_moduleBase = reinterpret_cast<uint64_t>(base);
@@ -87,15 +94,15 @@ public:
         mergeFreeBlocks();
     }
 
-    void write64To(uint32_t guest, uint64_t val) { *(uint64_t*)((uint64_t)base + guest) = val; }
-    void write32To(uint32_t guest, uint32_t val) { *(uint64_t*)((uint64_t)base + guest) = val; }
-    void write16To(uint32_t guest, uint16_t val) { *(uint64_t*)((uint64_t)base + guest) = val; }
-    void write8To(uint32_t guest, uint8_t val) { *(uint64_t*)((uint64_t)base + guest) = val; }
+    void write64To(uint32_t guest, uint64_t val) { *(uint64_t*)((uint64_t)base + guest) = BeField<uint64_t>(val).value; }
+    void write32To(uint32_t guest, uint32_t val) { *(uint64_t*)((uint64_t)base + guest) = BeField<uint32_t>(val).value; }
+    void write16To(uint32_t guest, uint16_t val) { *(uint64_t*)((uint64_t)base + guest) = BeField<uint16_t>(val).value; }
+    void write8To(uint32_t guest, uint8_t val) { *(uint64_t*)((uint64_t)base + guest) = BeField<uint8_t>(val).value; }
 
-    uint64_t read64From(uint32_t guest) { return (uint64_t)(*(uint64_t*)((uint64_t)base + guest)); }
-    uint32_t read32From(uint32_t guest) { return (uint32_t)(*(uint64_t*)((uint64_t)base + guest)); }
-    uint16_t read16From(uint32_t guest) { return (uint16_t)(*(uint64_t*)((uint64_t)base + guest)); }
-    uint8_t read8From(uint32_t guest) { return (uint8_t)(*(uint64_t*)((uint64_t)base + guest)); }
+    uint64_t read64From(uint32_t guest) { return BeField<uint64_t>((uint64_t)(*(uint64_t*)((uint64_t)base + guest))).value; }
+    uint32_t read32From(uint32_t guest) { return BeField<uint32_t>((uint32_t)(*(uint64_t*)((uint64_t)base + guest))).value; }
+    uint16_t read16From(uint32_t guest) { return BeField<uint16_t>((uint16_t)(*(uint64_t*)((uint64_t)base + guest))).value; }
+    uint8_t read8From(uint32_t guest) { return BeField<uint8_t>((uint8_t)(*(uint64_t*)((uint64_t)base + guest))).value; }
 
     uint32_t makeHostGuest(void* host) { return (uint64_t)host - (uint64_t)base;  }
     void* makeGuestHost(uint32_t guest) { return (void*)((uint64_t)base + guest); }

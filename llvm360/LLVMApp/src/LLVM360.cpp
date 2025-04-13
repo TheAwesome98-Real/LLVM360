@@ -257,7 +257,7 @@ bool pass_Flow()
         flow_mfsprProl(address, endAddress);
         flow_promoteTailProl(address, endAddress);
         flow_stackInitProl(address, endAddress);
-
+		flow_dataSecAdr(address, endAddress);
         // this break stuff :/
         //flow_aftBclrProl(address, endAddress); // this as last resort, if called before could break everything
 

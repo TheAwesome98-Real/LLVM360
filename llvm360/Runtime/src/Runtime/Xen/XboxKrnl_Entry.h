@@ -8,8 +8,8 @@ extern "C"
 {
 	DLL_API void RtlInitAnsiString(XenonState* ctx, uint32_t lr)
 	{
-		X_ANSI_STRING* ansiStr = (X_ANSI_STRING*)ctx->gpr(3);
-		char* str = (char*)ctx->gpr(4);
+		X_ANSI_STRING* ansiStr = (X_ANSI_STRING*)XRuntime::g_runtime->m_memory->makeGuestHost(ctx->gpr(3));
+		char* str = (char*)XRuntime::g_runtime->m_memory->makeGuestHost(ctx->gpr(4));
 		RtlInitAnsiString_X(ansiStr, str);
 		return;
 	}
@@ -33,6 +33,7 @@ extern "C"
 	DLL_API void RtlEnterCriticalSection(XenonState* ctx, uint32_t lr)
 	{
 		X_LOG(X_INFO, "{RtlEnterCriticalSection}");
+		ctx->setGpr(3, RtlEnterCriticalSection_X((XCRITICAL_SECTION*)XRuntime::g_runtime->m_memory->makeGuestHost(ctx->gpr(3))));
 	}
 	DLL_API void RtlLeaveCriticalSection(XenonState* ctx, uint32_t lr)
 	{
@@ -57,6 +58,7 @@ extern "C"
 	DLL_API void KeTlsSetValue(XenonState* ctx, uint32_t lr)
 	{
 		X_LOG(X_INFO, "{KeTlsSetValue} ");
+		ctx->setGpr(3, 1);
 	}
 	DLL_API void RtlInitUnicodeString(XenonState* ctx, uint32_t lr)
 	{

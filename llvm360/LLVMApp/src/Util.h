@@ -557,6 +557,36 @@ void flow_demoteInBounds(uint32_t start, uint32_t end)
     }
 }
 
+void flow_dataSecAdr(uint32_t start, uint32_t end)
+{
+    Section* pData = findSection(".data");
+
+    if (pData)
+    {
+        const auto baseAddress = loadedXex->GetBaseAddress();
+        const auto sectionBaseAddress = baseAddress + pData->GetVirtualOffset();
+        const auto endAddress = sectionBaseAddress + pData->GetVirtualSize();
+        const auto address = sectionBaseAddress;
+        const uint8_t* m_imageDataPtr = pData->GetImage()->GetMemory() +
+            (pData->GetVirtualOffset() - pData->GetImage()->GetBaseAddress());
+        const uint64_t offset = address - pData->GetVirtualOffset();
+        const uint8_t* stride = m_imageDataPtr + offset;
+
+        const uint32_t size = pData->GetVirtualSize() / 4;
+
+        for (uint32_t i = 0; i < size; i++)
+        {
+			uint32_t val = SwapInstrBytes(*(uint32_t*)(stride + (i * 4)));
+			if (val >= start && val <= end)
+			{
+                IRFunc* func = g_irGen->getCreateFuncInMap(val);
+                printf("Function address found in .Data\n");
+			}
+
+        }
+    }
+}
+
 void flow_jumpTables(uint32_t start, uint32_t end)
 {
 	for (const auto& pair : g_irGen->m_function_map)

@@ -147,6 +147,9 @@ EXPMD_IMPVar* XRuntime::getImpByName(const char* name)
 uint32_t m_nativeXexExecutableModuleHandle;
 uint32_t m_nativeXexExecutableModuleHandlePtr;
 
+uint32_t m_nativeXboxHardwareInfo;
+
+
 void XRuntime::initImpVars()
 {
     EXPMD_IMPVar* var = getImpByName("XexExecutableModuleHandle");
@@ -158,6 +161,16 @@ void XRuntime::initImpVars()
         m_memory->write32To(m_nativeXexExecutableModuleHandlePtr, m_nativeXexExecutableModuleHandle);
         m_memory->write32To(m_nativeXexExecutableModuleHandle, 0x4000000);
         m_memory->write32To(m_nativeXexExecutableModuleHandle + 0x58, 0x80101100);
+    }
+
+    var = getImpByName("XboxHardwareInfo");
+    if (var != nullptr)
+    {
+        // setup basics - XboxHardwareInfo
+        m_nativeXboxHardwareInfo = m_memory->makeHostGuest(m_memory->allocate(0, 16, 0, PAGE_READWRITE));
+        m_memory->write32To(var->addr, m_nativeXboxHardwareInfo);
+        m_memory->write32To(m_nativeXboxHardwareInfo, 0x00000000); // flags
+        m_memory->write32To(m_nativeXboxHardwareInfo + 0x4, 0x6); // num cpus
     }
 }
 
