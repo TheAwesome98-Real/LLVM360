@@ -405,8 +405,41 @@ bool pass_Emit()
 
 
 
-int main() 
+int main(int argc, char* argv[])
 {
+    std::vector<std::string> filePaths;
+
+    if (argc < 2) 
+    {
+		LOG_FATAL("MAIN", "Usage: %s <path_to_xex_file>", argv[0]);
+        return 1;
+    }
+
+    std::string txtFilePath = argv[1];
+    std::ifstream file(txtFilePath);
+
+    if (!file.is_open()) 
+    {
+		LOG_FATAL("MAIN", "Error: Could not open file %s", txtFilePath.c_str());
+        return 1;
+    }
+
+    std::string line;
+    while (std::getline(file, line)) 
+    {
+        if (!line.empty()) 
+        {
+			LOG_INFO("MAIN", "Found file path: %s", line.c_str());
+			filePaths.push_back(line);
+        }
+    }
+    file.close();
+
+
+
+
+
+
     loadedXex = new XexImage(L"LLVMTest1.xex");
     loadedXex->LoadXex();
     g_irGen = new IRGenerator(loadedXex, mod, &builder);
@@ -484,6 +517,9 @@ int main()
     printf("\n\n\nDecoding process took: %f seconds\n", duration.count() / 1000000.0);
     printf("Decoded %i PPC Instructions\n", instCount);
   
+
+
+
 
 
     // Splash texts
