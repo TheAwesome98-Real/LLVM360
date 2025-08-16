@@ -73,7 +73,7 @@ llvm_map_components_to_libnames(LLVM_LIBS
   x86codegen
   x86desc
   x86asmparser
-  x86info
+  x86info  
   mc
   mcjit
   mcparser
@@ -83,6 +83,7 @@ llvm_map_components_to_libnames(LLVM_LIBS
   transformutils
 )
 
+#TEST
 # LLD libs (add path to lld libs if needed)
 set(LLD_LIBS
   lldCommon
