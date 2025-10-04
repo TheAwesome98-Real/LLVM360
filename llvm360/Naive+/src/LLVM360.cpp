@@ -1,4 +1,5 @@
-#include "Util.h"
+#include "Shared.h"
+#include "Logger.h"
 
 
 
@@ -39,6 +40,19 @@
 //    gen->writeIRtoFile();
 //}
 
+Section* findSection(std::string name)
+{
+    for (uint32_t i = 0; i < loadedXex->GetNumSections(); i++)
+    {
+        if (strcmp(loadedXex->GetSection(i)->GetName().c_str(), name.c_str()) == 0)
+        {
+            return loadedXex->GetSection(i);
+        }
+    }
+
+    printf("No Section with name: s& found", name.c_str());
+    return nullptr;
+}
 
 
 bool pass_Decode()
@@ -46,16 +60,7 @@ bool pass_Decode()
 
     bool ret = true;
 
-    // Open the output file if printFile is true
-    std::ofstream outFile;
-    if (printFile) {
-        outFile.open("instructions_output.txt");
-        if (!outFile.is_open()) {
-            printf("Failed to open the file for writing instructions.\n");
-            ret = false;
-            return ret;
-        }
-    }
+    
 
     for (size_t i = 0; i < loadedXex->GetNumSections(); i++)
     {
@@ -73,7 +78,6 @@ bool pass_Decode()
         auto address = sectionBaseAddress;
 
         InstructionDecoder decoder(section);
-        if (doOverride) endAddress = overAddr;
         while (address < endAddress)
         {
             Instruction instruction;
@@ -88,36 +92,14 @@ bool pass_Decode()
             // add instruction to map
             g_irGen->instrsList.try_emplace(address, instruction);
 
-            if (printINST) {
-                // print raw PPC decoded instruction + operands
-                std::ostringstream oss;
-                oss << std::hex << std::uppercase << std::setfill('0');
-                oss << std::setw(8) << address << ":   " << instruction.opcName;
-
-                for (size_t i = 0; i < instruction.ops.size(); ++i) {
-                    oss << " " << std::setw(2) << static_cast<int>(instruction.ops.at(i));
-                }
-
-                std::string output = oss.str();
-                if (printFile) {
-                    // Write output to file if printFile is true
-                    outFile << output << std::endl;
-                }
-                else {
-                    // Print output to the console
-                    printf("%s\n", output.c_str());
-                }
-            }
+           
+        
 
             address += 4; // always 4
             instCount++; // instruction count
         }
     }
 
-    // Close the output file if it was opened
-    if (printFile) {
-        outFile.close();
-    }
 
     return ret;
 }
@@ -152,7 +134,7 @@ bool pass_Emit()
         for (const auto& pair : g_irGen->m_function_map) 
         {
             IRFunc* func = pair.second;
-            if (genLLVMIR && !func->emission_done)
+            if (!func->emission_done)
             {
 				g_irGen->initFuncBody(func);
 				ret = func->EmitFunction();
@@ -167,49 +149,50 @@ bool pass_Emit()
 }
 
 
+void LoadBinary()
+{
+	
+}
+
+
+
+PBinaryHandle* TranslateBinary(std::string path, bool useCache)
+{
+	
+	PBinaryHandle* handle = new PBinaryHandle();
+	handle->m_imagePath = path;
+	handle->m_type = BIN_UNKNOWN;
+	handle->m_ID = -1;
+    
+
+	if (useCache == false)
+	{
+        // load and decode instructions
+        handle->LoadBinary();
+
+        // recompile into dym lib
+		handle->RecompileBinary();
+		
+        return handle;
+    }
+
+	LOG_ERROR("TranslateBinary", "Caching NYI");
+    // the cache is very simple in practice, it's just a way to store already recompiled modules, 
+    // it doesn't matter where they are located 
+	// so all cached binaries will be located in ./cache/<hash>
+
+	return handle;
+}
 
 int main(int argc, char* argv[])
 {
-    std::vector<std::string> filePaths;
-
-    if (argc < 2) 
-    {
-		LOG_FATAL("MAIN", "Usage: %s <path_to_xex_file>", argv[0]);
-        return 1;
-    }
-
-    std::string txtFilePath = argv[1];
-    std::ifstream file(txtFilePath);
-
-    if (!file.is_open()) 
-    {
-		LOG_FATAL("MAIN", "Error: Could not open file %s", txtFilePath.c_str());
-        return 1;
-    }
-
-    std::string line;
-    while (std::getline(file, line)) 
-    {
-        if (!line.empty()) 
-        {
-			LOG_INFO("MAIN", "Found file path: %s", line.c_str());
-			filePaths.push_back(line);
-        }
-    }
-    file.close();
-
-
-
-
-
+   
 
     loadedXex = new XexImage(L"LLVMTest1.xex");
     loadedXex->LoadXex();
     g_irGen = new IRGenerator(loadedXex, mod, &builder);
     g_irGen->Initialize();
-    g_irGen->m_dbCallBack = dbCallBack;
-    g_irGen->m_dumpIRConsole = dumpIRConsole;
-
+    
     
 
 

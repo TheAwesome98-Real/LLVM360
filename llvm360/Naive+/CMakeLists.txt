@@ -3,13 +3,14 @@ cmake_minimum_required(VERSION 3.15)
 project(Naive+)
 
 
-set(XEX 
-    src/Xex/XexLoader.h
-    src/Xex/XexLoader.cpp
-    src/Xex/XexImage.h
-    src/Xex/ImportTable.h
-    src/Xex/AES.h
-    src/Xex/AES.cpp
+set(Loader 
+    src/Loader/PEImage.h
+    src/Loader/XexImage.h
+    src/Loader/ImageLoader.cpp
+    src/Loader/ImageLoader.h
+    src/Loader/table/ImportTable.h
+    src/Loader/AES/AES.h
+    src/Loader/AES/AES.cpp
 )
 
 
@@ -26,14 +27,14 @@ set(IR
     src/IR/IRFunc.h
     src/IR/IRGenerator.cpp
     src/IR/IRGenerator.h
-    src/IR/JumpTables.h
 )
 
 set(SRC
     src/LLVM360.cpp
-    src/Util.h
+    src/Shared.h
+    src/Logger.h 
 
-    ${XEX}
+    ${Loader}
     ${DECODER}
     ${IR}
 )
