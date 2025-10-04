@@ -3,22 +3,6 @@ cmake_minimum_required(VERSION 3.15)
 project(Naive+)
 
 
-
-# MSVC-specific options
-#if(MSVC)
-#    # Adjust compiler flags for better compatibility
-#    set(CMAKE_C_FLAGS_DEBUG "/ZI /Od /Ob0 /DNDEBUG" CACHE STRING "" FORCE)
-#    set(CMAKE_CXX_FLAGS_DEBUG "/ZI /Od /Ob0 /DNDEBUG" CACHE STRING "" FORCE)
-#
-#    if(LLVM_USE_CRT_RELEASE STREQUAL "MD")
-#        set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
-#    elseif(LLVM_USE_CRT_RELEASE STREQUAL "MT")
-#        set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded)
-#    else()
-#        message(FATAL_ERROR "Unsupported LLVM_USE_CRT_RELEASE=${LLVM_USE_CRT_RELEASE}")
-#    endif()
-#endif()
-
 set(XEX 
     src/Xex/XexLoader.h
     src/Xex/XexLoader.cpp
@@ -61,31 +45,4 @@ set(SRC
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_executable(Naive+ ${SRC})
-
-
-# List of LLVM libs you need:
-llvm_map_components_to_libnames(LLVM_LIBS
-  core
-  support
-  target
-  irreader
-  asmparser
-  tablegen
-  x86codegen
-  x86info  
-  mc
-  mcjit
-  mcparser
-  nativecodegen
-  object
-  passes
-)
-
-
-set(LLD_LIBS
-  #lldCommon
-  #lldCOFF
-)
-
-target_link_libraries(Naive+ PRIVATE ${LLVM_LIBS} ${LLD_LIBS})
-target_include_directories(Naive+ PRIVATE ${LLVM_INCLUDE_DIRS})
+target_link_libraries(Naive+ PRIVATE ext_llvm)

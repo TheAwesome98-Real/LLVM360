@@ -1,22 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 project(Emulator)
 
-# imgui
-#set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../external/imgui)
-#include_directories(${IMGUI_DIR})
-#include_directories(${IMGUI_DIR}/backends)
-#include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../external/sdl2)
-#set(IMGUI_SRC
-#    ${IMGUI_DIR}/imgui.cpp
-#	${IMGUI_DIR}/imgui_demo.cpp
-#    ${IMGUI_DIR}/imgui_draw.cpp
-#    ${IMGUI_DIR}/imgui_tables.cpp
-#    ${IMGUI_DIR}/imgui_widgets.cpp
-#    ${IMGUI_DIR}/backends/imgui_impl_dx11.cpp   
-#    ${IMGUI_DIR}/backends/imgui_impl_win32.cpp 
-#)
-#add_library(Runtime SHARED ${SOURCES} ${IMGUI_SRC})
-
 
 SET(Graphics
     src/Graphics/ImGuiTest.h

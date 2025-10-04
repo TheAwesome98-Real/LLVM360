@@ -41,7 +41,7 @@ Section* findSection(std::string name)
         }
     }
 
-    printf("No Section with name: s& found", name);
+    printf("No Section with name: s& found", name.c_str());
     return nullptr;
 }
 
