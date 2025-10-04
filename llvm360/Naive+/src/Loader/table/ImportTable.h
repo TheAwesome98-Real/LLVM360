@@ -1,6 +1,8 @@
 #pragma once
 #include "Loader/XEXImage.h"
 
+using namespace XLoader;
+
 std::vector<Import*> import_table;
 
 static inline void loadImport(XboxLibrary lib, std::string name, uint32_t ordinal, ImportType type)

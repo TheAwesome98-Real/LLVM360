@@ -48,26 +48,6 @@ bool IRFunc::EmitFunction()
         }
 
 
-        if (has_jumpTable)
-        {
-            for (JumpTable* table : jumpTables)
-            {
-                if (instr.address >= table->start_Address && instr.address <= table->end_Address)
-                {
-                    std::unordered_set<uint32_t> processedValues; // do not allow duplicates
-                    for (uint32_t target : table->targets)
-                    {
-                        if (processedValues.find(target) == processedValues.end())
-                        {
-                            getCreateBBinMap(target);
-                            processedValues.insert(target);
-                        }
-                    }
-                }
-            }
-        }
-
-
         idx += 4;
     }
 

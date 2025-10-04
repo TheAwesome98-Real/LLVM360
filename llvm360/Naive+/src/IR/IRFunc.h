@@ -2,8 +2,6 @@
 #include <string>
 #include <iomanip>
 #include "IRGenerator.h"
-#include "JumpTables.h"
-
 
 struct CodeBlock
 {
@@ -38,5 +36,5 @@ public:
     bool startW_MFSPR_LR;
     bool is_promotion;
     bool has_jumpTable;
-	std::vector<JumpTable*> jumpTables;
+	
 };

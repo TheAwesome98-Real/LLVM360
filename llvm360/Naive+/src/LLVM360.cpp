@@ -1,9 +1,8 @@
 #include "Shared.h"
 #include "Logger.h"
-
-
-
-
+#include "Loader/ImageLoader.h"
+#include <Loader/XEXImage.h>
+#include <Loader/PEImage.h>
 
 //void unitTest(IRGenerator* gen)
 //{
@@ -39,124 +38,118 @@
 //    printf("----IR DUMP----\n\n\n");
 //    gen->writeIRtoFile();
 //}
+//bool pass_Emit()
+//{
+//
+//    //if (isUnitTesting)
+//	//{
+//	//	unitTest(g_irGen);
+//	//	return true;
+//	//}
+//
+//    bool ret = true;
+//
+//    for (size_t i = 0; i < loadedXex->GetNumSections(); i++)
+//    {
+//        const Section* section = loadedXex->GetSection(i);
+//
+//        if (!section->CanExecute())
+//        {
+//            continue;
+//        }
+//        printf("Emitting IR for section %s\n", section->GetName().c_str());
+//        // compute code range
+//        const auto baseAddress = loadedXex->GetBaseAddress();
+//        const auto sectionBaseAddress = baseAddress + section->GetVirtualOffset();
+//        auto endAddress = baseAddress + section->GetVirtualOffset() + section->GetVirtualSize();
+//        auto address = sectionBaseAddress;
+//
+//        
+//        for (const auto& pair : g_irGen->m_function_map) 
+//        {
+//            IRFunc* func = pair.second;
+//            if (!func->emission_done)
+//            {
+//				g_irGen->initFuncBody(func);
+//				ret = func->EmitFunction();
+//                func->emission_done = true;
+//            }
+//        }
+//    }
+//
+//    g_irGen->writeIRtoFile();
+//
+//    return ret;
+//}
 
-Section* findSection(std::string name)
+
+void PBinaryHandle::LoadBinary()
 {
-    for (uint32_t i = 0; i < loadedXex->GetNumSections(); i++)
+    auto bin = XLoader::ImageLoader::load(this->m_imagePath);
+    if (bin == nullptr)
     {
-        if (strcmp(loadedXex->GetSection(i)->GetName().c_str(), name.c_str()) == 0)
-        {
-            return loadedXex->GetSection(i);
-        }
+        LOG_ERROR("PBinaryHandle::LoadBinary", "Failed to load binary image");
+        return;
+    }
+    if (dynamic_cast<XLoader::XEXImage*>(bin.get()) != nullptr)
+    {
+        this->m_type = BIN_XEX;
+    }
+    else if (dynamic_cast<XLoader::PEImage*>(bin.get()) != nullptr)
+    {
+        this->m_type = BIN_PE;
+    }
+    else
+    {
+        this->m_type = BIN_UNKNOWN;
+        LOG_ERROR("PBinaryHandle::LoadBinary", "Unknown binary type");
+        return;
     }
 
-    printf("No Section with name: s& found", name.c_str());
-    return nullptr;
-}
 
-
-bool pass_Decode()
-{
-
-    bool ret = true;
-
-    
-
-    for (size_t i = 0; i < loadedXex->GetNumSections(); i++)
+    for(const auto& sec : bin->getSections())
     {
-        const Section* section = loadedXex->GetSection(i);
-
-        if (!section->CanExecute())
+        
+        if (!sec->isExecutable())
         {
             continue;
         }
-        printf("Decoding Instructions for section %s\n", section->GetName().c_str());
-        // compute code range
-        const auto baseAddress = loadedXex->GetBaseAddress();
-        const auto sectionBaseAddress = baseAddress + section->GetVirtualOffset();
-        auto endAddress = baseAddress + section->GetVirtualOffset() + section->GetVirtualSize();
-        auto address = sectionBaseAddress;
 
-        InstructionDecoder decoder(section);
-        while (address < endAddress)
+        
+	    LOG_DEBUG("PBinaryHandle::LoadBinary", "Found executable section: %s", sec->getName().c_str());
+   
+        const auto base = bin->getBaseAddress();
+        const auto start = base + sec->getVirtualAddress();
+        const auto end = base + sec->getVirtualAddress() + sec->getVirtualSize();
+        
+
+        const uint8_t* secDataPtr = (const uint8_t*)bin->getMemoryData() + (sec->getVirtualAddress() - base);
+	    uint32_t address = start;
+
+        InstructionDecoder decoder((sec.get()), secDataPtr);
+        while (address <= end)
         {
             Instruction instruction;
             const auto instructionSize = decoder.GetInstructionAt(address, instruction);
             if (instructionSize == 0)
             {
-                printf("Failed to decode instruction at %08X\n", address);
-                ret = false;
+		        LOG_ERROR("PBinaryHandle::LoadBinary", "Failed to decode instruction at %08X", address);
                 break;
             }
-
-            // add instruction to map
-            g_irGen->instrsList.try_emplace(address, instruction);
-
-           
-        
-
-            address += 4; // always 4
-            instCount++; // instruction count
+            this->m_binInstr.push_back(instruction);
+             
+            address += 4;
         }
+
+
+		// only decode first executable section it finds
+        return;
     }
-
-
-    return ret;
-}
-
-bool pass_Emit()
-{
-
-    //if (isUnitTesting)
-	//{
-	//	unitTest(g_irGen);
-	//	return true;
-	//}
-
-    bool ret = true;
-
-    for (size_t i = 0; i < loadedXex->GetNumSections(); i++)
-    {
-        const Section* section = loadedXex->GetSection(i);
-
-        if (!section->CanExecute())
-        {
-            continue;
-        }
-        printf("Emitting IR for section %s\n", section->GetName().c_str());
-        // compute code range
-        const auto baseAddress = loadedXex->GetBaseAddress();
-        const auto sectionBaseAddress = baseAddress + section->GetVirtualOffset();
-        auto endAddress = baseAddress + section->GetVirtualOffset() + section->GetVirtualSize();
-        auto address = sectionBaseAddress;
-
-        
-        for (const auto& pair : g_irGen->m_function_map) 
-        {
-            IRFunc* func = pair.second;
-            if (!func->emission_done)
-            {
-				g_irGen->initFuncBody(func);
-				ret = func->EmitFunction();
-                func->emission_done = true;
-            }
-        }
-    }
-
-    g_irGen->writeIRtoFile();
-
-    return ret;
-}
-
-
-void LoadBinary()
-{
-	
 }
 
 
 
-PBinaryHandle* TranslateBinary(std::string path, bool useCache)
+PBinaryHandle* TranslateBinary(std::wstring path, bool useCache)
 {
 	
 	PBinaryHandle* handle = new PBinaryHandle();
@@ -188,10 +181,10 @@ int main(int argc, char* argv[])
 {
    
 
-    loadedXex = new XexImage(L"LLVMTest1.xex");
-    loadedXex->LoadXex();
-    g_irGen = new IRGenerator(loadedXex, mod, &builder);
-    g_irGen->Initialize();
+    //loadedXex = new XexImage(L"LLVMTest1.xex");
+    //loadedXex->LoadXex();
+    //g_irGen = new IRGenerator(loadedXex, mod, &builder);
+    //g_irGen->Initialize();
     
     
 

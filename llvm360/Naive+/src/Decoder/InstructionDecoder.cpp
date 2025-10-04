@@ -48,12 +48,11 @@ private:
   uint32_t m_instr = 0;
 };
 
-InstructionDecoder::InstructionDecoder(const Section *imageSection) {
-  m_imageSection = imageSection;
-  m_imageBaseAddress = imageSection->GetVirtualOffset();
-  m_imageDataSize = imageSection->GetVirtualSize();
-  m_imageDataPtr = (const uint8_t *)imageSection->GetImage()->GetMemory() +
-                   (m_imageBaseAddress - imageSection->GetImage()->GetBaseAddress());
+InstructionDecoder::InstructionDecoder(XLoader::Section* imageSection, const uint8_t* secData) 
+{
+  m_imageBaseAddress = imageSection.getVirtualAddress();
+  m_imageDataSize = imageSection.getVirtualSize();
+  m_imageDataPtr = (const uint8_t *)imageSection->GetImage->GetMemory() + (m_imageBaseAddress - imageSection->GetImage()->GetBaseAddress());
 }
 
 uint32_t InstructionDecoder::GetInstructionAt(uint32_t address, Instruction &instruction) {

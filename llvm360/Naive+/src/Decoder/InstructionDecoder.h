@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 #include "Instruction.h"
-#include "Xex/XexLoader.h"
+#include "Loader/ImageLoader.h"
 
 static inline uint32_t SwapInstrBytes(const uint32_t v) {
   uint32_t ret;
@@ -16,11 +16,10 @@ static inline uint32_t SwapInstrBytes(const uint32_t v) {
 
 class InstructionDecoder {
 public:
-  InstructionDecoder(const Section *imageSection);
+  InstructionDecoder(XLoader::Section* imageSection, const uint8_t* secDataPtr);
   uint32_t GetInstructionAt(uint32_t address, Instruction &instruction);
   uint32_t DecodeInstruction(const uint8_t *stride, Instruction &instruction);
 
-  const Section *m_imageSection;
   uint64_t m_imageBaseAddress;
   uint64_t m_imageDataSize;
   const uint8_t *m_imageDataPtr;

@@ -10,10 +10,8 @@
 #include <stdio.h>
 #include <sstream>
 #include <iomanip>
-#include <conio.h>  // for _kbhit
+#include <conio.h>
 #include <chrono>
-
-#include <Xex/XexLoader.h>
 
 #include "Decoder/Instruction.h"
 #include "Decoder/InstructionDecoder.h"
@@ -24,7 +22,6 @@
 
 
 // Naive+ stuff
-XexImage* loadedXex;
 IRGenerator* g_irGen;
 llvm::LLVMContext cxt;
 llvm::Module* mod = new llvm::Module("Xenon", cxt);
@@ -57,7 +54,7 @@ enum BinaryType
 // it's used to as communication between Naive+ and emulator to define a loaded binary
 struct PBinaryHandle
 {
-	std::string m_imagePath;
+	std::wstring m_imagePath;
 	BinaryType m_type;
 	uint32_t m_ID;
 	std::vector<Instruction> m_binInstr;
