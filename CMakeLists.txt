@@ -16,4 +16,4 @@ option(USE_PREBUILT_LLVM "Use prebuilt LLVM instead of building from source" ON)
 
 add_subdirectory(external)
 add_subdirectory(llvm360/Naive+)
-#add_subdirectory(llvm360/Emulator)
+add_subdirectory(llvm360/Emulator)

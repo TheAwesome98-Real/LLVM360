@@ -2,44 +2,13 @@ cmake_minimum_required(VERSION 3.15)
 project(Emulator)
 
 
-SET(Graphics
-    src/Graphics/ImGuiTest.h
-    src/Graphics/ImGuiDebugger.h
-    src/Graphics/ImGuiDebugger.cpp
-    src/Graphics/DX12Manager.h
-    src/Graphics/DX12Manager.cpp
-)
+SET(SRC
 
-SET(Runtime
-    src/Runtime/Runtime.h
-    src/Runtime/Runtime.cpp
-    src/Runtime/MemoryManager.h
-    src/Runtime/Kernel/XKernel.h
-    src/Runtime/Kernel/XKernel.cpp
-    src/Runtime/Kernel/XeThread.h
-    src/Runtime/Kernel/XeThread.cpp
-    src/Runtime/Xen/Xam_Entry.h
-    src/Runtime/Xen/Xam_Impl.h
-    src/Runtime/Xen/XboxKrnl_Entry.h
-    src/Runtime/Xen/XboxKrnl_Impl.h
-    src/Runtime/Xen/XenUtils.h
-)
-
-SET(Emu_SRC
-    ${Graphics}
     ${Runtime}
-    src/pch.h 
-    src/pch.cpp
-    src/dllmain.cpp
+    src/Shared.h 
+    src/emulator.cpp
 )
 
-add_executable(Emulator ${Emu_SRC})
-
-
-if(MSVC)
-    target_compile_definitions(Emulator PRIVATE "RUNTIME_EXPORTS")
-endif()
-
+add_executable(Emulator ${SRC})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(Emulator PRIVATE d3d12 d3d11 dxgi dxguid)
-target_precompile_headers(Emulator PRIVATE src/pch.h)
+target_link_libraries(Emulator PRIVATE Naive+)
