@@ -83,6 +83,11 @@
 //}
 
 
+void PBinaryHandle::RecompileBinary()
+{
+
+}
+
 void PBinaryHandle::LoadBinary()
 {
     auto bin = XLoader::ImageLoader::load(this->m_imagePath);

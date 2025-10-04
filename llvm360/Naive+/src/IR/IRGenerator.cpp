@@ -6,10 +6,10 @@
 
 
 
-IRGenerator::IRGenerator(XexImage *xex, llvm::Module* mod, llvm::IRBuilder<llvm::NoFolder>* builder)
+IRGenerator::IRGenerator(llvm::Module* mod, llvm::IRBuilder<llvm::NoFolder>* builder)
   : m_builder(builder)
   , m_module(mod) {
-  m_xexImage = xex;
+  
 }
 
 
@@ -102,11 +102,15 @@ void IRGenerator::InitLLVM() {
     //
 
     // add xex entry point function
-	IRFunc* xex_entry = getCreateFuncInMap(m_xexImage->GetEntryAddress());
-	initFuncBody(xex_entry);
+	//IRFunc* xex_entry = getCreateFuncInMap(m_xexImage->GetEntryAddress());
+	
+    IRFunc* xex_entry = getCreateFuncInMap(0x0);
+
+    initFuncBody(xex_entry);
     m_builder->SetInsertPoint(entry);
     m_builder->CreateCall(dllTestFunc);
-	m_builder->CreateCall(xex_entry->m_irFunc, { xCtx, llvm::ConstantInt::get(m_builder->getInt32Ty(), m_xexImage->GetEntryAddress())});
+	//m_builder->CreateCall(xex_entry->m_irFunc, { xCtx, llvm::ConstantInt::get(m_builder->getInt32Ty(), m_xexImage->GetEntryAddress())});
+    m_builder->CreateCall(xex_entry->m_irFunc, { xCtx, llvm::ConstantInt::get(m_builder->getInt32Ty(), 0x01) });
 
     
 	m_builder->SetInsertPoint(entry);

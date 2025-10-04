@@ -11,7 +11,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
 
-#include "Xex/XexLoader.h"
+
 #include "Decoder/Instruction.h"
 #include <Windows.h>
 #include <map>
@@ -26,11 +26,11 @@ public:
   llvm::IRBuilder<llvm::NoFolder>* m_builder;
   llvm::Module* m_module;
   // Xenon State stuff
-  XexImage *m_xexImage;
+  //XexImage *m_xexImage;
   bool m_dbCallBack;
   bool m_dumpIRConsole;
 
-  IRGenerator(XexImage *xex, llvm::Module* mod, llvm::IRBuilder<llvm::NoFolder>* builder);
+  IRGenerator(llvm::Module* mod, llvm::IRBuilder<llvm::NoFolder>* builder);
   void Initialize();
   bool EmitInstruction(Instruction instr, IRFunc* func);
   void InitLLVM();

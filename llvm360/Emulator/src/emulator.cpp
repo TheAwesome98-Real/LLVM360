@@ -5,8 +5,10 @@
 
 
 
-void main()
+int main()
 {
 
 
+	printf("YEY");
+	return 0;
 }

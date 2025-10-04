@@ -389,26 +389,26 @@ inline void bcctrl_e(Instruction instr, IRFunc* func)
 
 inline void bcctr_e(Instruction instr, IRFunc* func)
 {
-    if (func->has_jumpTable)
-    {
-        for (JumpTable* table : func->jumpTables)
-        {
-            if (instr.address >= table->start_Address && instr.address <= table->end_Address)
-            {
-                llvm::SwitchInst* Switch = BUILD->CreateSwitch(ctrVal(), func->getCreateBBinMap(table->targets[0]), table->targets.size());
-                std::unordered_set<uint32_t> processedValues; // do not allow duplicates
-                for (uint32_t target : table->targets)
-                {
-                    if (processedValues.find(target) == processedValues.end())
-                    {
-                        Switch->addCase(i32Const(target), func->getCreateBBinMap(target));
-                        processedValues.insert(target);
-                    }
-                }
-                return;
-            }
-        }
-    }
+    //if (func->has_jumpTable)
+    //{
+    //    for (JumpTable* table : func->jumpTables)
+    //    {
+    //        if (instr.address >= table->start_Address && instr.address <= table->end_Address)
+    //        {
+    //            llvm::SwitchInst* Switch = BUILD->CreateSwitch(ctrVal(), func->getCreateBBinMap(table->targets[0]), table->targets.size());
+    //            std::unordered_set<uint32_t> processedValues; // do not allow duplicates
+    //            for (uint32_t target : table->targets)
+    //            {
+    //                if (processedValues.find(target) == processedValues.end())
+    //                {
+    //                    Switch->addCase(i32Const(target), func->getCreateBBinMap(target));
+    //                    processedValues.insert(target);
+    //                }
+    //            }
+    //            return;
+    //        }
+    //    }
+    //}
 
     DebugBreak();
     auto argIter = func->m_irFunc->arg_begin();
