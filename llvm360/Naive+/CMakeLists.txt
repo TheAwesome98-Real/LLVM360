@@ -12,10 +12,6 @@ set(XEX
     src/Xex/AES.cpp
 )
 
-set(MISC
-    src/misc/Utils.h
-    src/misc/Utils.cpp
-)
 
 set(DECODER
     src/Decoder/Instruction.h
@@ -38,11 +34,10 @@ set(SRC
     src/Util.h
 
     ${XEX}
-    ${MISC}
     ${DECODER}
     ${IR}
 )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
-add_executable(Naive+ ${SRC})
+add_library(Naive+ SHARED ${SRC})
 target_link_libraries(Naive+ PRIVATE ext_llvm)
