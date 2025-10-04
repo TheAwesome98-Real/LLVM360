@@ -67,28 +67,25 @@ add_executable(Naive+ ${SRC})
 llvm_map_components_to_libnames(LLVM_LIBS
   core
   support
-  irreader
-  bitreader
   target
+  irreader
+  asmparser
+  tablegen
   x86codegen
-  x86desc
-  x86asmparser
   x86info  
   mc
   mcjit
   mcparser
   nativecodegen
-  objwriter
+  object
   passes
-  transformutils
 )
 
-#TEST
-# LLD libs (add path to lld libs if needed)
+
 set(LLD_LIBS
-  lldCommon
-  lldCOFF
+  #lldCommon
+  #lldCOFF
 )
 
-llvm_map_components_to_libnames(LLVM_LIBS support core irreader bitwriter)
 target_link_libraries(Naive+ PRIVATE ${LLVM_LIBS} ${LLD_LIBS})
+target_include_directories(Naive+ PRIVATE ${LLVM_INCLUDE_DIRS})

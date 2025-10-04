@@ -858,7 +858,7 @@ inline void srawi_e(Instruction instr, IRFunc* func)
 // AHHHHHHH instrinsic
 inline void cntlzw_e(Instruction instr, IRFunc* func)
 {
-    llvm::Function* CtlzFunc = llvm::Intrinsic::getDeclaration(func->m_irGen->m_module, llvm::Intrinsic::ctlz, { i32_T });
+    llvm::Function* CtlzFunc = llvm::Intrinsic::getDeclarationIfExists(func->m_irGen->m_module, llvm::Intrinsic::ctlz, { i32_T });
     llvm::Value* IsZeroUndef = i1Const(false);  // Do not allow undef
     llvm::Value* LeadingZeros = BUILD->CreateCall(CtlzFunc, { trcTo32(gprVal(instr.ops[1])), IsZeroUndef}, "call");
     BUILD->CreateStore(LeadingZeros, func->getRegister("RR", instr.ops[0]));

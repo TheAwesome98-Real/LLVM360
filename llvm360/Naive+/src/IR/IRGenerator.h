@@ -9,6 +9,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/InlineAsm.h"
+#include "llvm/IR/Intrinsics.h"
 
 #include "Xex/XexLoader.h"
 #include "Decoder/Instruction.h"
