@@ -48,9 +48,8 @@ private:
   uint32_t m_instr = 0;
 };
 
-InstructionDecoder::InstructionDecoder(XLoader::Section* imageSection, const uint8_t* secDataPtr) 
+InstructionDecoder::InstructionDecoder(XLoader::Section* imageSection, const uint8_t* secDataPtr, uint32_t secBaseAddr) : m_imageBaseAddress(secBaseAddr)
 {
-  m_imageBaseAddress = imageSection->getVirtualAddress();
   m_imageDataSize = imageSection->getVirtualSize();
   m_imageDataPtr = secDataPtr;
 }

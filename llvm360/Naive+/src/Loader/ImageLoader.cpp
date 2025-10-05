@@ -5,7 +5,6 @@
 #include <memory>
 #include <cstring>
 
-
 namespace XLoader
 {
 
@@ -236,6 +235,15 @@ namespace XLoader
             bool writable = (sectionHeader.characteristics & IMAGE_SCN_MEM_WRITE) != 0;
             bool executable = (sectionHeader.characteristics & IMAGE_SCN_MEM_EXECUTE) != 0;
 
+
+            // THIS WONT BE PERMANENT, it's just so i can get things going without wasting time with this
+            if(strcmp(name,".text") == 0)
+            {
+                printf("PEImage::loadSections %s", "WARNING-- USING HARDCODED OFFSET AND SIZE");
+                sectionHeader.pointerToRawData = sectionHeader.virtualAddress;
+                sectionHeader.sizeOfRawData = 0xFDE4c;
+                sectionHeader.virtualSize = 0xFDE4c;
+            }
             auto section = std::make_unique<Section>(
                 name,
                 sectionHeader.virtualAddress,
@@ -244,7 +252,7 @@ namespace XLoader
                 sectionHeader.sizeOfRawData,
                 readable, writable, executable
             );
-
+            
             printf("  Section '%s': VA=0x%08X, Size=0x%08X\n",
                 name, sectionHeader.virtualAddress, sectionHeader.virtualSize);
 

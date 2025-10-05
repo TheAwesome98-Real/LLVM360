@@ -42,3 +42,5 @@ set(SRC
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_library(Naive+ SHARED ${SRC})
 target_link_libraries(Naive+ PRIVATE ext_llvm)
+target_compile_definitions(Naive+ PRIVATE NAIVE_EXPORT)
+target_include_directories(Naive+ PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Naive+)

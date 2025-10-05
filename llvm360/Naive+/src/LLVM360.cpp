@@ -115,23 +115,39 @@ void PBinaryHandle::LoadBinary()
     for(const auto& sec : bin->getSections())
     {
         
-        if (!sec->isExecutable())
+        if (sec->getName() != ".text")
         {
             continue;
         }
 
+
+        uint32_t secVirtBase = 0;
+        uint32_t secVirtSize = 0;
+        // relocation for kernel, idk why it's offsetted
+        if (this->m_type == BIN_PE)
+        {
+            secVirtBase = 0x80065c00; // .text real base
+            secVirtSize = 0x10A400; // .text real size
+        }
+
         
 	    LOG_DEBUG("PBinaryHandle::LoadBinary", "Found executable section: %s", sec->getName().c_str());
-   
-        const auto base = bin->getBaseAddress();
-        const auto start = base + sec->getVirtualAddress();
-        const auto end = base + sec->getVirtualAddress() + sec->getVirtualSize();
         
 
-        const uint8_t* secDataPtr = (const uint8_t*)bin->getMemoryData() + (sec->getVirtualAddress() - base);
+        uint32_t virtualAddr = sec->getVirtualAddress();
+        uint32_t virtualSize = sec->getVirtualSize();
+
+
+        const auto base = bin->getBaseAddress();
+        const auto start = base + virtualAddr;
+        const auto end = base + virtualAddr + virtualSize;
+        
+       
+
+        const uint8_t* secDataPtr = (const uint8_t*)bin->getMemoryData() + (virtualAddr);
 	    uint32_t address = start;
 
-        InstructionDecoder decoder((sec.get()), secDataPtr);
+        InstructionDecoder decoder((sec.get()), secDataPtr, start);
         while (address <= end)
         {
             Instruction instruction;
@@ -145,10 +161,6 @@ void PBinaryHandle::LoadBinary()
              
             address += 4;
         }
-
-
-		// only decode first executable section it finds
-        return;
     }
 }
 

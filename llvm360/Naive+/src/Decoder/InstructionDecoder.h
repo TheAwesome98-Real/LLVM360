@@ -16,7 +16,7 @@ static inline uint32_t SwapInstrBytes(const uint32_t v) {
 
 class InstructionDecoder {
 public:
-  InstructionDecoder(XLoader::Section* imageSection, const uint8_t* secDataPtr);
+  InstructionDecoder(XLoader::Section* imageSection, const uint8_t* secDataPtr, uint32_t secBaseAddr);
   uint32_t GetInstructionAt(uint32_t address, Instruction &instruction);
   uint32_t DecodeInstruction(const uint8_t *stride, Instruction &instruction);
 
