@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.30)
 project(external)
 
 
@@ -64,8 +64,8 @@ endif()
 # List of LLVM libs you need:
 llvm_map_components_to_libnames(LLVM_LIBS
   core
-  support
   target
+  x86
   irreader
   asmparser
   tablegen

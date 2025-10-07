@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.30)
 
 project(Naive+)
 
@@ -33,14 +33,15 @@ set(SRC
     src/LLVM360.cpp
     src/Shared.h
     src/Logger.h 
+    src/Naive+/Naive+.h
 
     ${Loader}
     ${DECODER}
-    ${IR}
+    #${IR}
 )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
-add_library(Naive+ SHARED ${SRC})
+add_library(Naive+ SHARED ${CMAKE_CURRENT_SOURCE_DIR}/${SRC})
 target_link_libraries(Naive+ PRIVATE ext_llvm)
 target_compile_definitions(Naive+ PRIVATE NAIVE_EXPORT)
 target_include_directories(Naive+ PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Naive+)
