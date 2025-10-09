@@ -27,7 +27,7 @@ struct PBinaryHandle
 	std::wstring m_imagePath;
 	BinaryType m_type;
 	uint32_t m_ID;
-	std::vector<Instruction> m_binInstr;
+	//std::vector<Instruction> m_binInstr;
 
 	void LoadBinary();
 	void RecompileBinary();

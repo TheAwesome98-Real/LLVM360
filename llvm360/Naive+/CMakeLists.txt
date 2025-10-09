@@ -15,9 +15,8 @@ set(Loader
 
 
 set(DECODER
-    src/Decoder/Instruction.h
-    src/Decoder/InstructionDecoder.cpp
-    src/Decoder/InstructionDecoder.h
+    src/Decoder/InstructionRegistry.cpp
+    src/Decoder/InstructionRegistry.h
 )
 
 set(IR

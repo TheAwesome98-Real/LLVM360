@@ -147,17 +147,18 @@ void PBinaryHandle::LoadBinary()
         const uint8_t* secDataPtr = (const uint8_t*)bin->getMemoryData() + (virtualAddr);
 	    uint32_t address = start;
 
-        InstructionDecoder decoder((sec.get()), secDataPtr, start);
+        InstructionRegistry& registry = g_instrRegistry;
         while (address <= end)
         {
-            Instruction instruction;
-            const auto instructionSize = decoder.GetInstructionAt(address, instruction);
-            if (instructionSize == 0)
-            {
-		        LOG_ERROR("PBinaryHandle::LoadBinary", "Failed to decode instruction at %08X", address);
-                break;
-            }
-            this->m_binInstr.push_back(instruction);
+            // get and byteswap
+            uint32_t data = __bswapd( (uint32_t) * ((uint32_t*)secDataPtr + (address - start)) );
+            Instruction instruction = registry.DecodeInstr(data, address);
+            //if (instructionSize == 0)
+            //{
+		    //    LOG_ERROR("PBinaryHandle::LoadBinary", "Failed to decode instruction at %08X", address);
+            //    break;
+            //}
+            //this->m_binInstr.push_back(instruction);
              
             address += 4;
         }

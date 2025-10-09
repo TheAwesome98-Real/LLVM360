@@ -65,7 +65,6 @@ endif()
 llvm_map_components_to_libnames(LLVM_LIBS
   core
   target
-  x86
   irreader
   asmparser
   tablegen
