@@ -17,6 +17,7 @@ enum BinaryType
 {
 	BIN_XEX,
 	BIN_PE,
+	BIN_KERNEL,
 	BIN_UNKNOWN
 };
 
@@ -38,4 +39,4 @@ struct PBinaryHandle
 	// Translate a binary located at <path> and return a generated handle describing it
 	// used also to load cached binaries <useCache> (true)
 	// the PBinaryHandle is generated everytime the binary it's translated or reloaded from cache
-	NAIVE_EXPORT PBinaryHandle* TranslateBinary(std::wstring path, bool useCache = false);
+	NAIVE_EXPORT PBinaryHandle* TranslateBinary(std::wstring path, bool useCache = false, bool isKernel = false);

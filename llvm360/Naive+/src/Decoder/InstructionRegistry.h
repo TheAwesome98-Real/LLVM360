@@ -8,11 +8,16 @@ enum FormType
 { 
 	FORM_UNK,
 	FORM_PADDING,
-	FORM_LI, 
+	FORM_I, 
 	FORM_B, 
 	FORM_SC, 
 	FORM_D, 
-	FORM_X 
+	FORM_DS,
+	FORM_X,
+	FORM_XL,
+	FORM_XFX,
+	FORM_M,
+	FORM_MD,
 };
 
 
@@ -22,10 +27,10 @@ union DEFAULTForm
 	struct { uint32_t CCC : 26, OPCD : 6; };
 };
 
-union LIForm
+union IForm
 {
 	uint32_t raw;
-	uint32_t OPCD : 6, LI : 24, AA : 1, LK : 1;
+	uint32_t LK : 1, AA : 1, LI : 24, OPCD : 6;
 };
 
 union BForm 
@@ -47,6 +52,26 @@ union DForm
 	struct { uint32_t IMM : 16, A : 5, L : 1, ZERO : 1, crfD : 3, OPCD : 6; } CRF;
 };
 
+union DSForm
+{
+	uint32_t raw;
+	struct { uint32_t XO : 2, ds : 14, A : 5, D : 5, OPCD : 6; } Base;
+};
+
+union MForm
+{
+	uint32_t raw;
+	struct { uint32_t Rc : 1, ME : 5, MB : 5, SH : 5, A : 5, S : 5, OPCD : 6; } M1;
+	struct { uint32_t Rc : 1, ME : 5, MB : 5, B : 5, A : 5, S : 5, OPCD : 6; } M2;
+};
+
+union MDForm
+{
+	uint32_t raw;
+	struct { uint32_t Rc : 1, sh1 : 1, XO : 3, mb : 6, sh : 5, A : 5, S : 5, OPCD : 6; } MD1;
+	struct { uint32_t Rc : 1, sh1 : 1, XO : 3, me : 6, sh : 5, A : 5, S : 5, OPCD : 6; } MD2;
+};
+
 
 // TODO: 
 // those are a lot, finish and verify!
@@ -59,16 +84,34 @@ union XForm
 	struct { uint32_t RC : 1, XO : 10, B : 5, A : 5, ZERO2 : 2, crfD : 3, OPCD : 6; } XD;
 };
 
+union XLForm
+{
+	uint32_t raw;
+	struct { uint32_t LK : 1, XO : 10, ZERO5 : 5, BI : 5, BO : 5, OPCD : 6; } XL_1;
+};
+
+
+union XFXForm
+{
+	uint32_t raw;
+	struct { uint32_t ZERO1 : 1, XO : 10, spr : 10, D : 5, OPCD : 6; } XFX_1;
+};
+
+
 union InstrOperands
 {
 	InstrOperands(uint32_t data) : raw(data) {}
 	uint32_t raw;
 	DEFAULTForm DEF;
-	LIForm LI;
+	IForm I;
 	BForm B;
 	SCForm SC;
 	DForm D;
+	DSForm DS;
 	XForm X;
+	XLForm XL;
+	XFXForm XFX;
+	MForm M;
 };
 
 

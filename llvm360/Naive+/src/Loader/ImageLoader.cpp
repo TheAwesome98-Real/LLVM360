@@ -268,28 +268,34 @@ namespace XLoader
         m_memoryData = new uint8_t[m_memorySize];
         std::memset(m_memoryData, 0, m_memorySize);
 
+
+
+        // copy everything
+        std::memcpy(m_memoryData, data, size);
+
+
         // Copy headers
-        size_t headerSize = m_optHeader.sizeOfHeaders;
-        if (headerSize > size) headerSize = size;
-        std::memcpy(m_memoryData, data, headerSize);
+        //size_t headerSize = m_optHeader.sizeOfHeaders;
+        //if (headerSize > size) headerSize = size;
+        //std::memcpy(m_memoryData, data, headerSize);
 
         // Copy sections
-        for (const auto& section : m_sections) {
-            if (section->getPhysicalSize() > 0) {
-                size_t copySize = section->getPhysicalSize();
-                if (section->getVirtualSize() < copySize) {
-                    copySize = section->getVirtualSize();
-                }
-
-                if (section->getPhysicalAddress() + copySize <= size) {
-                    std::memcpy(
-                        m_memoryData + section->getVirtualAddress(),
-                        data + section->getPhysicalAddress(),
-                        copySize
-                    );
-                }
-            }
-        }
+        //for (const auto& section : m_sections) {
+        //    if (section->getPhysicalSize() > 0) {
+        //        size_t copySize = section->getPhysicalSize();
+        //        if (section->getVirtualSize() < copySize) {
+        //            copySize = section->getVirtualSize();
+        //        }
+        //
+        //        if (section->getPhysicalAddress() + copySize <= size) {
+        //            std::memcpy(
+        //                m_memoryData + section->getVirtualAddress(),
+        //                data + section->getPhysicalAddress(),
+        //                copySize
+        //            );
+        //        }
+        //    }
+        //}
     }
 
     bool PEImage::loadImports(const uint8_t* data, size_t size) {

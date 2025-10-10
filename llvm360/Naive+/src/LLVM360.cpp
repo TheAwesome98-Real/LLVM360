@@ -96,19 +96,17 @@ void PBinaryHandle::LoadBinary()
         LOG_ERROR("PBinaryHandle::LoadBinary", "Failed to load binary image");
         return;
     }
-    if (dynamic_cast<XLoader::XEXImage*>(bin.get()) != nullptr)
-    {
-        this->m_type = BIN_XEX;
-    }
-    else if (dynamic_cast<XLoader::PEImage*>(bin.get()) != nullptr)
-    {
-        this->m_type = BIN_PE;
-    }
-    else
-    {
-        this->m_type = BIN_UNKNOWN;
-        LOG_ERROR("PBinaryHandle::LoadBinary", "Unknown binary type");
-        return;
+    if (this->m_type == BIN_UNKNOWN) {
+        if (dynamic_cast<XLoader::XEXImage*>(bin.get()) != nullptr){
+            this->m_type = BIN_XEX;
+        }
+        else if (dynamic_cast<XLoader::PEImage*>(bin.get()) != nullptr){
+            this->m_type = BIN_PE;
+        }
+        else{
+            LOG_ERROR("PBinaryHandle::LoadBinary", "Unknown binary type");
+            return;
+        }
     }
 
 
@@ -124,7 +122,7 @@ void PBinaryHandle::LoadBinary()
         uint32_t secVirtBase = 0;
         uint32_t secVirtSize = 0;
         // relocation for kernel, idk why it's offsetted
-        if (this->m_type == BIN_PE)
+        if (this->m_type == BIN_KERNEL)
         {
             secVirtBase = 0x80065c00; // .text real base
             secVirtSize = 0x10A400; // .text real size
@@ -167,12 +165,12 @@ void PBinaryHandle::LoadBinary()
 
 
 
-PBinaryHandle* TranslateBinary(std::wstring path, bool useCache)
+PBinaryHandle* TranslateBinary(std::wstring path, bool useCache, bool isKernel)
 {
 	
 	PBinaryHandle* handle = new PBinaryHandle();
 	handle->m_imagePath = path;
-	handle->m_type = BIN_UNKNOWN;
+	handle->m_type = isKernel ? BIN_KERNEL : BIN_UNKNOWN;
 	handle->m_ID = -1;
     
 
