@@ -14,6 +14,7 @@ enum FormType
 	FORM_D, 
 	FORM_DS,
 	FORM_X,
+	FORM_XO,
 	FORM_XL,
 	FORM_XFX,
 	FORM_M,
@@ -84,6 +85,14 @@ union XForm
 	struct { uint32_t RC : 1, XO : 10, B : 5, A : 5, ZERO2 : 2, crfD : 3, OPCD : 6; } XD;
 };
 
+union XOForm
+{
+	uint32_t raw;
+	struct { uint32_t Rc : 1, XO : 9, OE : 1, B : 5, A : 5, D : 5, OPCD : 6; } XO1;
+	struct { uint32_t Rc : 1, XO : 9, ZERO1 : 1, B : 5, A : 5, D : 5, OPCD : 6; } XO2;
+	struct { uint32_t Rc : 1, XO : 9, OE : 1, ZERO5 : 5, A : 5, D : 5, OPCD : 6; } XO3;
+};
+
 union XLForm
 {
 	uint32_t raw;
@@ -109,6 +118,7 @@ union InstrOperands
 	DForm D;
 	DSForm DS;
 	XForm X;
+	XOForm XO;
 	XLForm XL;
 	XFXForm XFX;
 	MForm M;
