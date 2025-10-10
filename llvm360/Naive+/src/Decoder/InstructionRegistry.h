@@ -6,6 +6,8 @@
 
 enum FormType 
 { 
+	FORM_UNK,
+	FORM_PADDING,
 	FORM_LI, 
 	FORM_B, 
 	FORM_SC, 
@@ -100,7 +102,6 @@ struct InstructionRegistry
 	struct OpcodeKey
 	{
 		uint32_t m_mainOP;
-		uint32_t m_extOP;
 		uint32_t m_extMASK;
 		std::unordered_map<uint32_t, InstructionDescriptor> m_descriptors;
 	};
@@ -109,7 +110,7 @@ struct InstructionRegistry
 
 	InstructionRegistry();
 	void registerInstructions();
-	void InitialiseOpCodeKey(uint32_t m_mainOP, uint32_t m_extOP, uint32_t m_extMASK);
+	void InitialiseOpCodeKey(uint32_t m_mainOP, uint32_t m_extMASK);
 	void AddDescriptorToKey(uint32_t mainOP, std::string mnemonic, FormType type, uint32_t extOP = 0);
 
 	Instruction DecodeInstr(uint32_t data, uint32_t address)
@@ -119,8 +120,17 @@ struct InstructionRegistry
 		
 		// get OpcodeKey by main Opcode
 		auto it = m_mainOPs.find(operands.DEF.OPCD);
-		if (it == m_mainOPs.end()) { printf("Instruction::DecodeInstr %s", "MAIN OPCODE HAS NO KEY"); _CrtDbgBreak(); }
-
+		if (it == m_mainOPs.end()) { printf("Instruction::DecodeInstr %s : %d", "MAIN OPCODE HAS NO KEY", operands.DEF.OPCD); _CrtDbgBreak(); }
+		
+		OpcodeKey& key = it->second;
+		uint32_t extOpcode = (data & key.m_extMASK);
+		auto itDesc = key.m_descriptors.find(extOpcode);
+		if (itDesc == key.m_descriptors.end()) { printf("Instruction::DecodeInstr %s %d", "OpCodeKey HAS NO DESCRIPTOR FOR THIS EXTOP", extOpcode >> (__builtin_ctz(key.m_extMASK))); _CrtDbgBreak(); }
+		
+		InstructionDescriptor& desc = itDesc->second;
+		instr.address = address;
+		instr.desc = desc;
+		instr.m_rawData = data;
 		return instr;
 	}
 };
